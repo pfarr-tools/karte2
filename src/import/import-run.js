@@ -87,6 +87,17 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
       issues.push(normalized);
       recordIssue(database, importRunId, normalized);
     }
+    const knownDocuments = database.prepare('SELECT COUNT(*) AS count FROM documents WHERE source_id = ?').get(sourceId).count;
+    if (parsed.documents.length === 0 && knownDocuments > 0) {
+      const anomaly = {
+        code: 'source-result-empty',
+        severity: 'warning',
+        message: 'Source page contained no PDF documents although previous documents exist',
+        context: { previousDocuments: knownDocuments },
+      };
+      issues.push(anomaly);
+      recordIssue(database, importRunId, anomaly);
+    }
 
     const findSection = database.prepare(`
       SELECT id FROM source_sections

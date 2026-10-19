@@ -200,11 +200,16 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
     const positionId = Number(request.params.id);
     const position = database?.prepare('SELECT * FROM positions WHERE id = ?').get(positionId);
     if (!position) return reply.code(404).send({ error: 'Position not found' });
-    database.transaction(() => {
+    database.exec('BEGIN IMMEDIATE');
+    try {
       database.prepare(`INSERT INTO position_overrides (position_id, field_name, override_value, editor, reason, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(position_id, field_name) DO UPDATE SET override_value = excluded.override_value, editor = excluded.editor, reason = excluded.reason, updated_at = excluded.updated_at`).run(positionId, field, String(value), String(editor), String(reason));
       database.prepare(`UPDATE positions SET ${field} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(value, positionId);
       database.prepare('INSERT INTO position_history (position_id, event_type, before_json, after_json, occurred_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)').run(positionId, 'editorial-override', JSON.stringify({ [field]: position[field] }), JSON.stringify({ [field]: value }));
-    })();
+      database.exec('COMMIT');
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
     return { status: 'updated', positionId, field };
   });
   return server;

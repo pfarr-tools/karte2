@@ -102,6 +102,9 @@ describe('page import persistence', () => {
 
     expect(empty.status).toBe('completed');
     expect(database.prepare('SELECT COUNT(*) AS count FROM documents').get().count).toBe(2);
+    expect(empty.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'source-result-empty', severity: 'warning' }),
+    ]));
     database.close();
   });
 

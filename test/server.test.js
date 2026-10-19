@@ -41,7 +41,6 @@ describe('HTTP server', () => {
       testRoot: path.join(root, 'test'),
       runtimeRoot: path.join(root, 'runtime'),
     });
-
     bootstrapDatabase(database);
 
     expect(database.prepare('SELECT COUNT(*) AS count FROM sources').get().count).toBe(1);
@@ -58,6 +57,7 @@ describe('HTTP server', () => {
       testRoot: path.join(root, 'test'),
       runtimeRoot: path.join(root, 'runtime'),
     });
+    databases.push(database);
     bootstrapDatabase(database);
     database.prepare(`
       INSERT INTO positions (stable_slug, normalized_name, type, deanery, employment_percentage)
@@ -116,7 +116,6 @@ describe('HTTP server', () => {
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain('Beispielpfarrstelle');
     expect(page.body).toContain('Originaldokument');
-    database.close();
   });
 
   it('renders a German public map/list shell with an unofficial disclaimer', async () => {
