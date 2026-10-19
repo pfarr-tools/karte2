@@ -56,4 +56,22 @@ describe('ELKW listing page parser', () => {
     ]));
     expect(result.issues).toEqual([]);
   });
+
+  it('keeps available context after the source page structural heading', () => {
+    const result = parseElkwListingPage(`
+      <h2>Aktuelle Ausschreibungen</h2>
+      <h3>Ausschreibungen zum 15. Oktober 2026 - Bewerbungsschluss zum 5. November 2026</h3>
+      <a href="/downloads/aktuell.pdf">Aktuelle Stelle (PDF)</a>
+      <h2>Ausschreibungstexte der verfügbaren Pfarrstellen</h2>
+      <a href="/downloads/verfuegbar.pdf">Verfügbare Stelle (PDF)</a>
+    `, options);
+
+    expect(result.documents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sectionKey: 'available:default',
+        originalUrl: 'https://www.elk-wue.de/downloads/verfuegbar.pdf',
+      }),
+    ]));
+    expect(result.issues).toEqual([]);
+  });
 });

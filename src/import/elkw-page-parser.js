@@ -16,7 +16,7 @@ function parseGermanDate(value) {
 function categoryForHeading(text) {
   const normalized = text.toLocaleLowerCase('de');
   if (normalized.includes('aktuelle ausschreibungen')) return 'advertised';
-  if (normalized.includes('verfügbare pfarrstellen')) return 'available';
+  if (/verfügbar(?:e|en)\s+pfarrstellen/.test(normalized)) return 'available';
   if (normalized.includes('liste zu besetzender pfarrstellen')) return 'upcoming';
   return null;
 }
