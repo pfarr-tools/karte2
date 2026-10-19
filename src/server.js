@@ -85,10 +85,10 @@ function publicationItems(database, query) {
   if (query.deadlineBefore) { clauses.push('pub.application_deadline <= ?'); values.push(query.deadlineBefore); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = database.prepare(`
-    SELECT pub.id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage,
-      pub.category, pub.application_deadline, pub.current_state,
+    SELECT pub.id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage, p.description,
+      pub.category, pub.application_deadline, pub.published_at, pub.current_state, pub.extraction_confidence,
       l.name AS location_name, l.address, l.latitude, l.longitude, pl.role,
-      s.name AS source_name, s.url AS source_url, d.original_url AS document_url
+      s.name AS source_name, s.url AS source_url, d.original_url AS document_url, d.fetched_at
     FROM publications pub
     JOIN positions p ON p.id = pub.position_id
     JOIN sources s ON s.id = pub.source_id
@@ -103,8 +103,9 @@ function publicationItems(database, query) {
     if (!items.has(row.id)) items.set(row.id, {
       id: row.id, name: row.name, category: row.category, type: row.type, deanery: row.deanery,
       employmentPercentage: row.employment_percentage, deadline: row.application_deadline,
-      state: row.current_state, locations: [], source: { name: row.source_name, url: row.source_url },
-      documentUrl: row.document_url,
+      publishedAt: row.published_at, fetchedAt: row.fetched_at, extractionConfidence: row.extraction_confidence,
+      description: row.description, state: row.current_state, locations: [],
+      source: { name: row.source_name, url: row.source_url }, documentUrl: row.document_url,
     });
     if (row.location_name) items.get(row.id).locations.push({
       name: row.location_name, address: row.address, latitude: row.latitude, longitude: row.longitude, role: row.role,
@@ -136,8 +137,8 @@ function escapeHtml(value) {
 }
 
 function positionDetailPage(item) {
-  const publications = item.publications.map((publication) => `<li>${escapeHtml(publication.category)} – <a href="${escapeHtml(publication.documentUrl)}">Originaldokument</a> (Quelle: ${escapeHtml(publication.source.name)})</li>`).join('');
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(item.position.name)} – Pfarrstellenkarte</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body><main class="container py-4"><a href="/">← Zur Übersicht</a><h1 class="mt-3">${escapeHtml(item.position.name)}</h1><p>${escapeHtml(item.position.type)}${item.position.deanery ? ` · ${escapeHtml(item.position.deanery)}` : ''}</p><h2 class="h4">Standorte</h2><ul>${item.position.locations.map((location) => `<li>${escapeHtml(location.name)}${location.address ? `, ${escapeHtml(location.address)}` : ''}</li>`).join('')}</ul><h2 class="h4">Veröffentlichungen und Quellen</h2><ul>${publications}</ul><p class="alert alert-warning">Unverbindliche Übersicht. Maßgeblich sind die originalen ELKW-Dokumente.</p></main></body></html>`;
+  const publications = item.publications.map((publication) => `<li><strong>${escapeHtml(publication.category)}</strong>${publication.deadline ? ` · Frist: ${escapeHtml(publication.deadline)}` : ''} · <a href="${escapeHtml(publication.documentUrl)}">Originaldokument</a> (Quelle: ${escapeHtml(publication.source.name)})${publication.fetchedAt ? ` · Abgerufen: ${escapeHtml(publication.fetchedAt)}` : ''}</li>`).join('');
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(item.position.name)} – Pfarrstellenkarte</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body><main class="container py-4"><a href="/">← Zur Übersicht</a><h1 class="mt-3">${escapeHtml(item.position.name)}</h1><p>${escapeHtml(item.position.type)}${item.position.deanery ? ` · ${escapeHtml(item.position.deanery)}` : ''}</p>${item.position.description ? `<p>${escapeHtml(item.position.description)}</p>` : ''}<h2 class="h4">Standorte</h2><ul>${item.position.locations.map((location) => `<li>${escapeHtml(location.name)}${location.address ? `, ${escapeHtml(location.address)}` : ''}</li>`).join('')}</ul><h2 class="h4">Veröffentlichungen und Quellen</h2><ul>${publications}</ul><p class="alert alert-warning">Unverbindliche Übersicht. Maßgeblich sind die originalen ELKW-Dokumente.</p></main></body></html>`;
 }
 
 export function buildServer({ database = null, adminToken = config.adminToken, importRunner = null } = {}) {
@@ -155,7 +156,7 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
     const items = database ? publicationItems(database, { positionId: request.params.id }) : [];
     if (!items.length) return reply.code(404).send({ error: 'Position not found' });
     return {
-      position: { id: Number(request.params.id), name: items[0].name, type: items[0].type, deanery: items[0].deanery, locations: items[0].locations },
+      position: { id: Number(request.params.id), name: items[0].name, type: items[0].type, deanery: items[0].deanery, description: items[0].description, locations: items[0].locations },
       publications: items,
     };
   });
@@ -163,7 +164,7 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
     const items = database ? publicationItems(database, { positionId: request.params.id }) : [];
     if (!items.length) return reply.code(404).send({ error: 'Position not found' });
     return reply.type('text/html').send(positionDetailPage({
-      position: { name: items[0].name, type: items[0].type, deanery: items[0].deanery, locations: items[0].locations },
+      position: { name: items[0].name, type: items[0].type, deanery: items[0].deanery, description: items[0].description, locations: items[0].locations },
       publications: items,
     }));
   });

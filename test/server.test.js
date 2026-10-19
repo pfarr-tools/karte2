@@ -94,6 +94,9 @@ describe('HTTP server', () => {
         deanery: 'Beispieldekanat',
         employmentPercentage: 75,
         deadline: '2026-11-05',
+        publishedAt: null,
+        fetchedAt: '2026-10-19T12:00:00Z',
+        extractionConfidence: null,
         state: 'current',
         locations: [{ name: 'Beispielort', address: 'Kirchplatz 1', latitude: 48.5, longitude: 9.1, role: 'duty' }],
         source: { name: 'Ausschreibungen und Liste zu besetzender Pfarrstellen', url: 'https://www.elk-wue.de/wir/oberkirchenrat/dezernat-3-ausbildung-und-pfarrdienst/referat-31-planung-einsatz-verwaltung-pfarrdienst/ausschreibungen-und-liste-zu-besetzender-pfarrstellen' },
@@ -116,6 +119,7 @@ describe('HTTP server', () => {
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain('Beispielpfarrstelle');
     expect(page.body).toContain('Originaldokument');
+    expect(page.body).toContain('Abgerufen: 2026-10-19T12:00:00Z');
   });
 
   it('filters by position type, deanery, employment percentage and deadline', async () => {
