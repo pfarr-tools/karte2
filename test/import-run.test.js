@@ -197,4 +197,28 @@ describe('page import persistence', () => {
     expect(database.prepare('SELECT COUNT(*) AS count FROM publications').get().count).toBe(1);
     database.close();
   });
+
+  it('retains multiple duty locations for one position across publications', async () => {
+    const database = makeDatabase();
+    const options = {
+      database,
+      html: '<h2>Aktuelle Ausschreibungen</h2><h3>Ausschreibungen zum 15. Oktober 2026 - Bewerbungsschluss zum 5. November 2026</h3><a href="/downloads/one.pdf">Gemeinsame Stelle (PDF)</a><a href="/downloads/two.pdf">Gemeinsame Stelle (PDF)</a>',
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, url.endsWith('one.pdf') ? 'hash-one' : 'hash-two'),
+      extractDocumentImpl: async ({ textPath, pdfPath }) => ({
+        textPath,
+        pageCount: 1,
+        text: `Pfarrstelle Gemeinsame Stelle\nDienstsitz: ${pdfPath.endsWith('hash-one.pdf') ? 'Ort A' : 'Ort B'}\n`,
+      }),
+    };
+
+    await runPageImport(options);
+
+    expect(database.prepare('SELECT COUNT(*) AS count FROM positions').get().count).toBe(1);
+    expect(database.prepare('SELECT name FROM locations ORDER BY name').all()).toEqual([{ name: 'Ort A' }, { name: 'Ort B' }]);
+    expect(database.prepare('SELECT COUNT(*) AS count FROM position_locations').get().count).toBe(2);
+    database.close();
+  });
 });

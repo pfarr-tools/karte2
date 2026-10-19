@@ -27,6 +27,13 @@ function updateImportedPosition(database, positionId, parsed) {
   }
 }
 
+function ensurePositionLocation(database, positionId, locationName) {
+  if (!locationName) return;
+  const existing = database.prepare('SELECT id FROM locations WHERE name = ? AND address IS NULL').get(locationName);
+  const locationId = existing?.id ?? database.prepare('INSERT INTO locations (name) VALUES (?)').run(locationName).lastInsertRowid;
+  database.prepare('INSERT OR IGNORE INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(positionId, locationId, 'duty');
+}
+
 function persistPublication(database, { candidate, section, documentId, extractedText, observedAt }) {
   const parsed = parseVacancyText({ title: candidate.title, text: extractedText });
   let position = database.prepare('SELECT id FROM positions WHERE normalized_name = ?').get(parsed.normalizedName);
@@ -43,7 +50,10 @@ function persistPublication(database, { candidate, section, documentId, extracte
     );
     position = { id: Number(inserted.lastInsertRowid) };
     if (locationId) database.prepare('INSERT INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(position.id, locationId, 'duty');
-  } else updateImportedPosition(database, position.id, parsed);
+  } else {
+    updateImportedPosition(database, position.id, parsed);
+    ensurePositionLocation(database, position.id, parsed.locationName);
+  }
 
   const existingPublication = database.prepare(`
     SELECT id FROM publications WHERE position_id = ? AND document_id = ? AND category = ?
