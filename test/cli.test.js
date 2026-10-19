@@ -51,4 +51,21 @@ describe('CLI arguments', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ database, documentId: 7 });
   });
+
+  it('retries transient source failures with injected backoff', async () => {
+    let attempts = 0;
+    const waits = [];
+    const response = { ok: true, async text() { return '<h2>Kontakt</h2>'; } };
+    await expect(runCli(['import', '--dry-run'], {
+      stdout: { write() {} },
+      fetchImpl: async () => {
+        attempts += 1;
+        if (attempts < 3) throw new Error('temporary network failure');
+        return response;
+      },
+      sleepImpl: async (milliseconds) => waits.push(milliseconds),
+    })).resolves.toBe(0);
+    expect(attempts).toBe(3);
+    expect(waits).toEqual([100, 200]);
+  });
 });

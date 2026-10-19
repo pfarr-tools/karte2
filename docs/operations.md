@@ -19,6 +19,8 @@ parallele Läufe mit einem SQLite-Lock.
 
 `GEOCODER_URL` muss auf einen Nominatim-kompatiblen Dienst zeigen. Mehrdeutige
 Treffer erhalten keine Koordinaten und müssen administrativ geprüft werden.
+Der Abruf der offiziellen ELKW-Seite wird bei temporären Netzwerkfehlern oder
+HTTP 429/5xx mit begrenztem exponentiellem Backoff wiederholt.
 
 ## Administration
 

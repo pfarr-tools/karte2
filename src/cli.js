@@ -51,16 +51,28 @@ export function parseCliArgs(argv) {
   return { command, dryRun: options.includes('--dry-run'), force: options.includes('--force'), file };
 }
 
-async function fetchPage(url, fetchImpl = fetch) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
-  try {
-    const response = await fetchImpl(url, { signal: controller.signal, headers: { 'user-agent': 'karte2/0.1' } });
-    if (!response.ok) throw new Error(`Source page request failed with HTTP ${response.status}`);
-    return await response.text();
-  } finally {
-    clearTimeout(timer);
+async function fetchPage(url, fetchImpl = fetch, { sleepImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)), maxAttempts = 3 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const response = await fetchImpl(url, { signal: controller.signal, headers: { 'user-agent': 'karte2/0.1' } });
+      if (!response.ok) {
+        const error = new Error(`Source page request failed with HTTP ${response.status}`);
+        if (response.status >= 400 && response.status !== 429 && response.status < 500) throw error;
+        lastError = error;
+      } else {
+        return await response.text();
+      }
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < maxAttempts - 1) await sleepImpl(100 * (2 ** attempt));
   }
+  throw lastError;
 }
 
 export async function runCli(argv, dependencies = {}) {
@@ -143,7 +155,7 @@ export async function runCli(argv, dependencies = {}) {
   }
 
   const source = sourceDefinitions.find(({ id }) => id === 'elkw-pfarrstellen');
-  const html = await fetchPage(source.url, dependencies.fetchImpl);
+  const html = await fetchPage(source.url, dependencies.fetchImpl, { sleepImpl: dependencies.sleepImpl });
   if (args.dryRun) {
     const parsed = parseElkwListingPage(html, {
       sourceId: source.id,
