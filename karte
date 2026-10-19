@@ -14,7 +14,8 @@ Commands:
   logs     Follow application logs
   shell    Open a shell in the application container
   migrate  Apply migrations and source registry synchronization
-  status   Show database and import status
+  status   Show Docker Compose service status
+  app-status Show database and import status
   import   Import the official ELKW listing page
            --dry-run, --force and --file PATH are supported
   geocode  Geocode unresolved locations
@@ -35,7 +36,9 @@ case "$command" in
   logs) docker compose -f compose.yaml logs -f ;;
   shell) docker compose -f compose.yaml run --rm --build app sh ;;
   scheduler) docker compose -f compose.yaml --profile scheduler up -d --build scheduler ;;
-  migrate|status|import|geocode|backup) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
+  status) docker compose -f compose.yaml ps "${@:2}" ;;
+  app-status|data-status) docker compose -f compose.yaml run --rm --build app node src/cli.js status ;;
+  migrate|import|geocode|backup) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
   test) docker compose -f compose.yaml -f compose.test.yaml run --rm --build test ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $command" >&2; usage >&2; exit 2 ;;

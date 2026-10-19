@@ -103,7 +103,8 @@ ein altes Image einen veralteten Quellstand ausführt.
 | `./karte logs` | Anwendungslogs verfolgen |
 | `./karte shell` | Shell in einem temporären App-Container öffnen |
 | `./karte migrate` | Migrationen ausführen und Quellen synchronisieren |
-| `./karte status` | Basisstatus von Quellen und Importen ausgeben |
+| `./karte status` | Docker- und Compose-Dienststatus anzeigen |
+| `./karte app-status` | Basisstatus von Quellen und Importen ausgeben |
 | `./karte import` | ELKW-Seite laden, PDFs speichern, extrahieren und importieren |
 | `./karte import --dry-run` | Seite laden und analysieren, ohne SQLite zu ändern |
 | `./karte import --force` | Bereits gespeicherte PDF-Versionen erneut extrahieren |

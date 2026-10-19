@@ -7,6 +7,10 @@ PDFs und Backups liegen im Compose-Volume `karte-data`. Für die optionale tägl
 Synchronisierung wird `./karte scheduler` verwendet; der Scheduler verhindert
 parallele Läufe mit einem SQLite-Lock.
 
+`./karte status` zeigt den aktuellen Status der Compose-Dienste. Der bisherige
+Anwendungsstatus mit Quellen- und Importzahlen ist über `./karte app-status`
+verfügbar.
+
 ## Import und Geocoding
 
 ```bash

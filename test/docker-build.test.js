@@ -26,4 +26,9 @@ describe('Docker build prerequisites', () => {
     expect(wrapper).toMatch(/geocode\|backup\)/);
     expect(wrapper).toMatch(/scheduler\)/);
   });
+
+  it('uses status for Docker state and app-status for application state', () => {
+    expect(wrapper).toMatch(/status\) docker compose -f compose\.yaml ps/);
+    expect(wrapper).toMatch(/app-status\|data-status\) docker compose -f compose\.yaml run --rm --build app node src\/cli\.js status/);
+  });
 });
