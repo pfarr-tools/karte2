@@ -10,6 +10,9 @@ Commands:
   down     Stop the application
   build    Build the application image
   logs     Follow application logs
+  migrate  Apply migrations and source registry synchronization
+  status   Show database and import status
+  import   Import the official ELKW listing page
   test     Run the isolated test service
 EOF
 }
@@ -20,6 +23,7 @@ case "$command" in
   down) docker compose -f compose.yaml down ;;
   build) docker compose -f compose.yaml build ;;
   logs) docker compose -f compose.yaml logs -f ;;
+  migrate|status|import) docker compose -f compose.yaml run --rm app node src/cli.js "$@" ;;
   test) docker compose -f compose.yaml -f compose.test.yaml run --rm test ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $command" >&2; usage >&2; exit 2 ;;
