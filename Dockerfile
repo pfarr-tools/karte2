@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim AS base
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y poppler-utils \
+    && apt-get install --no-install-recommends -y poppler-utils python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
