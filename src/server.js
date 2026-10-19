@@ -41,7 +41,7 @@ function publicPage() {
     const form = document.querySelector('#filters');
     function render(items) {
       markers.clearLayers();
-      results.innerHTML = items.length ? items.map((item) => '<article class="card mb-2"><div class="card-body"><h2 class="h5">' + item.name + '</h2><p class="mb-1">' + (item.type || '') + (item.deanery ? ' · ' + item.deanery : '') + '</p><p class="mb-1">Kategorie: ' + item.category + '</p><a href="' + item.documentUrl + '">Originaldokument</a></div></article>').join('') : '<p>Keine Pfarrstellen gefunden.</p>';
+      results.innerHTML = items.length ? items.map((item) => '<article class="card mb-2"><div class="card-body"><h2 class="h5">' + item.name + '</h2><p class="mb-1">' + (item.type || '') + (item.deanery ? ' · ' + item.deanery : '') + '</p><p class="mb-1">Kategorie: ' + item.category + '</p><p class="small text-body-secondary">Quelle: ' + item.source.name + '</p><a href="' + item.documentUrl + '">Originaldokument</a></div></article>').join('') : '<p>Keine Pfarrstellen gefunden.</p>';
       items.flatMap((item) => item.locations).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => L.marker([location.latitude, location.longitude]).bindPopup(location.name).addTo(markers));
     }
     async function load() { const params = new URLSearchParams(new FormData(form)); const response = await fetch('/api/publications?' + params); render((await response.json()).items); }
@@ -90,11 +90,33 @@ function publicationItems(database, query) {
   return [...items.values()];
 }
 
+function csvCell(value) {
+  const text = value ?? '';
+  return /[;"\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function publicationsCsv(items) {
+  const header = ['Name', 'Kategorie', 'Dekanat', 'Ort', 'Quelle', 'Originaldokument'];
+  const rows = items.map((item) => [
+    item.name,
+    item.category,
+    item.deanery,
+    item.locations.map((location) => location.name).join(', '),
+    item.source.name,
+    item.documentUrl,
+  ]);
+  return [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\n') + '\n';
+}
+
 export function buildServer({ database = null } = {}) {
   const server = Fastify({ logger: true });
   server.get('/health', async () => ({ status: 'ok' }));
   server.get('/', async (_, reply) => reply.type('text/html').send(publicPage()));
   server.get('/api/publications', async (request) => ({ items: database ? publicationItems(database, request.query) : [] }));
+  server.get('/api/publications.csv', async (request, reply) => reply
+    .type('text/csv; charset=utf-8')
+    .header('content-disposition', 'attachment; filename="pfarrstellen.csv"')
+    .send(publicationsCsv(database ? publicationItems(database, request.query) : [])));
   return server;
 }
 

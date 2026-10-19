@@ -96,6 +96,11 @@ describe('HTTP server', () => {
         documentUrl: 'https://www.elk-wue.de/beispiel.pdf',
       }],
     });
+    const csv = await server.inject({ method: 'GET', url: '/api/publications.csv?category=advertised' });
+    expect(csv.statusCode).toBe(200);
+    expect(csv.headers['content-type']).toMatch(/text\/csv/);
+    expect(csv.body).toContain('Name;Kategorie;Dekanat;Ort;Quelle;Originaldokument');
+    expect(csv.body).toContain('Beispielpfarrstelle;advertised;Beispieldekanat;Beispielort;Ausschreibungen und Liste zu besetzender Pfarrstellen;https://www.elk-wue.de/beispiel.pdf');
     database.close();
   });
 
