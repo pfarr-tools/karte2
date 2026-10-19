@@ -17,7 +17,9 @@ function firstMatch(text, patterns) {
  */
 export function parseVacancyText({ title, text }) {
   const lines = text.split(/\r?\n/).map(clean).filter(Boolean);
-  const name = clean(title) || lines[0] || 'Unbenannte Pfarrstelle';
+  const suppliedTitle = clean(title);
+  const genericTitle = suppliedTitle && /^(?:eine|zweite|erste|weitere)\s+stelle$/i.test(suppliedTitle);
+  const name = (!genericTitle && suppliedTitle) || lines[0] || 'Unbenannte Pfarrstelle';
   const type = /\bpfarrstelle\b/i.test(name) || /\bpfarrstelle\b/i.test(text) ? 'Pfarrstelle' : null;
   const deanery = firstMatch(text, [
     /(?:Dekan(?:at|ats)|Kirchenbezirk)\s*:\s*([^\n]+)/i,

@@ -118,7 +118,11 @@ describe('page import persistence', () => {
       extractDocumentImpl: async ({ documentId, pdfPath, textPath }) => {
         extractionCalls.push({ documentId, pdfPath, textPath });
         if (documentId === 2) throw new Error('malformed PDF');
-        return { textPath, pageCount: 2 };
+              return {
+                textPath,
+                pageCount: 2,
+                text: 'Pfarrstelle Beispielort\nDekanat: Musterhausen\nDienstsitz: Beispielort\n75 %\n',
+              };
       },
     };
 
@@ -128,6 +132,12 @@ describe('page import persistence', () => {
     expect(database.prepare("SELECT extraction_status, extracted_text_path, metadata_json FROM documents WHERE id = 1").get())
       .toEqual({ extraction_status: 'success', extracted_text_path: '/data/documents/hash-one.txt', metadata_json: '{"pageCount":2}' });
     expect(database.prepare('SELECT extraction_status FROM documents WHERE id = 2').get()).toEqual({ extraction_status: 'failed' });
+    expect(database.prepare('SELECT normalized_name, deanery, employment_percentage FROM positions').all()).toEqual([
+      { normalized_name: 'pfarrstelle beispielort', deanery: 'Musterhausen', employment_percentage: 75 },
+    ]);
+    expect(database.prepare('SELECT category, document_id FROM publications').all()).toEqual([
+      { category: 'advertised', document_id: 1 },
+    ]);
     expect(result.issues).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'document-extraction-failed', message: 'malformed PDF' }),
     ]));

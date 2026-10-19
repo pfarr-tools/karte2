@@ -1,10 +1,57 @@
 import { parseElkwListingPage } from './elkw-page-parser.js';
+import { parseVacancyText } from './vacancy-text-parser.js';
 
 function recordIssue(database, importRunId, issue) {
   database.prepare(`
     INSERT INTO import_issues (import_run_id, document_id, severity, code, message, context_json)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(importRunId, issue.documentId ?? null, issue.severity ?? 'error', issue.code, issue.message, JSON.stringify(issue.context ?? {}));
+}
+
+function stableSlug(name) {
+  return name.toLocaleLowerCase('de').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function persistPublication(database, { candidate, section, documentId, extractedText, observedAt }) {
+  const parsed = parseVacancyText({ title: candidate.title, text: extractedText });
+  let position = database.prepare('SELECT id FROM positions WHERE normalized_name = ?').get(parsed.normalizedName);
+  if (!position) {
+    const locationId = parsed.locationName
+      ? database.prepare('INSERT INTO locations (name) VALUES (?)').run(parsed.locationName).lastInsertRowid
+      : null;
+    const inserted = database.prepare(`
+      INSERT INTO positions (stable_slug, normalized_name, type, deanery, employment_percentage, employment_description, description, primary_location_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      stableSlug(parsed.name), parsed.normalizedName, parsed.type, parsed.deanery, parsed.employmentPercentage,
+      parsed.employmentDescription, parsed.description, locationId,
+    );
+    position = { id: Number(inserted.lastInsertRowid) };
+    if (locationId) database.prepare('INSERT INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(position.id, locationId, 'duty');
+  }
+
+  const existingPublication = database.prepare(`
+    SELECT id FROM publications WHERE position_id = ? AND document_id = ? AND category = ?
+  `).get(position.id, documentId, section.category);
+  if (existingPublication) return { positionId: position.id, publicationId: existingPublication.id, parsed };
+
+  const publicationId = Number(database.prepare(`
+    INSERT INTO publications (position_id, source_id, section_id, document_id, category, application_deadline, first_seen_at, last_seen_at, current_state, extraction_confidence)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'current', ?)
+  `).run(
+    position.id, candidate.sourceId, section.id, documentId, section.category, section.deadline, observedAt, observedAt, parsed.confidence,
+  ).lastInsertRowid);
+  const insertField = database.prepare(`
+    INSERT INTO extracted_fields (publication_id, field_name, raw_value, normalized_value, confidence)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  for (const [fieldName, value] of Object.entries({
+    name: parsed.name, deanery: parsed.deanery, employment_percentage: parsed.employmentPercentage, location: parsed.locationName,
+  })) {
+    if (value !== null) insertField.run(publicationId, fieldName, String(value), String(value), parsed.confidence);
+  }
+  return { positionId: position.id, publicationId, parsed };
 }
 
 /**
@@ -40,6 +87,7 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
       UPDATE source_sections SET deadline = ?, observed_at = ? WHERE id = ?
     `);
     const sectionIds = new Map();
+    const sectionsByKey = new Map(parsed.sections.map((section) => [section.key, section]));
     for (const section of parsed.sections) {
       const existing = findSection.get(sourceId, section.category, section.label, section.round, section.round);
       const id = existing?.id ?? insertSection.run(
@@ -88,6 +136,14 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
                 JSON.stringify({ pageCount: extraction.pageCount }),
                 documentId,
               );
+              const section = sectionsByKey.get(candidate.sectionKey);
+              if (section) persistPublication(database, {
+                candidate,
+                section: { ...section, id: sectionIds.get(candidate.sectionKey) },
+                documentId,
+                extractedText: extraction.text,
+                observedAt,
+              });
             } catch (error) {
               updateExtraction.run(null, 'failed', JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), documentId);
               const issue = {
