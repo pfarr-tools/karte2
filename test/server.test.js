@@ -10,11 +10,11 @@ const databases = [];
 const temporaryDirectories = [];
 
 afterEach(async () => {
-  while (servers.length > 0) {
-    await servers.pop().close();
-  }
   while (databases.length > 0) {
     databases.pop().close();
+  }
+  while (servers.length > 0) {
+    await servers.pop().close();
   }
   while (temporaryDirectories.length > 0) {
     fs.rmSync(temporaryDirectories.pop(), { recursive: true, force: true });
@@ -97,6 +97,7 @@ describe('HTTP server', () => {
         publishedAt: null,
         fetchedAt: '2026-10-19T12:00:00Z',
         extractionConfidence: null,
+        description: null,
         state: 'current',
         locations: [{ name: 'Beispielort', address: 'Kirchplatz 1', latitude: 48.5, longitude: 9.1, role: 'duty' }],
         source: { name: 'Ausschreibungen und Liste zu besetzender Pfarrstellen', url: 'https://www.elk-wue.de/wir/oberkirchenrat/dezernat-3-ausbildung-und-pfarrdienst/referat-31-planung-einsatz-verwaltung-pfarrdienst/ausschreibungen-und-liste-zu-besetzender-pfarrstellen' },
