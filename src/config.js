@@ -7,4 +7,5 @@ export const config = Object.freeze({
   testRoot: process.env.TEST_ROOT ?? path.resolve('.test-data'),
   port: Number(process.env.PORT ?? 3000),
   geocoderUrl: process.env.GEOCODER_URL ?? '',
+  backupRoot: process.env.BACKUP_ROOT ?? path.resolve('storage/backups'),
 });

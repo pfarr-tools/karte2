@@ -7,6 +7,7 @@ import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
 import { extractPdfText } from './import/pdf-extractor.js';
 import { geocodeLocations } from './import/geocoder.js';
+import { createBackup } from './backup.js';
 
 const usage = `Usage: node src/cli.js <command>
 
@@ -17,14 +18,15 @@ Commands:
   import --dry-run     Fetch and parse without writing SQLite
   geocode              Geocode unresolved locations using the configured provider
   geocode --dry-run    Inspect unresolved locations without writing
+  backup create         Create a consistent SQLite and document backup
 `;
 
 export function parseCliArgs(argv) {
   const command = argv[0] ?? 'help';
   const options = argv.slice(1);
-  const unknown = options.find((option) => option !== '--dry-run');
+  const unknown = options.find((option) => option !== '--dry-run' && !(command === 'backup' && option === 'create'));
   if (unknown) throw new Error(`unknown option: ${unknown}`);
-  if (!['help', 'migrate', 'status', 'import', 'geocode'].includes(command)) {
+  if (!['help', 'migrate', 'status', 'import', 'geocode', 'backup'].includes(command)) {
     throw new Error(`unknown command: ${command}`);
   }
   return { command, dryRun: options.includes('--dry-run') };
@@ -74,6 +76,20 @@ export async function runCli(argv, dependencies = {}) {
       providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
       fetchImpl: dependencies.fetchImpl,
       dryRun: args.dryRun,
+    });
+    stdout.write(JSON.stringify(result) + '\n');
+    return 0;
+  }
+
+  if (args.command === 'backup') {
+    if (!argv.includes('create')) throw new Error('backup requires the create subcommand');
+    const database = dependencies.database ?? openDatabase(config);
+    migrateDatabase(database);
+    const result = await createBackup({
+      database,
+      databasePath: config.databasePath,
+      runtimeRoot: config.runtimeRoot,
+      backupRoot: config.backupRoot,
     });
     stdout.write(JSON.stringify(result) + '\n');
     return 0;

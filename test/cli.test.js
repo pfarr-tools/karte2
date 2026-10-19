@@ -11,6 +11,7 @@ describe('CLI arguments', () => {
     expect(parseCliArgs(['migrate'])).toEqual({ command: 'migrate', dryRun: false });
     expect(parseCliArgs(['status'])).toEqual({ command: 'status', dryRun: false });
     expect(parseCliArgs(['geocode', '--dry-run'])).toEqual({ command: 'geocode', dryRun: true });
+    expect(parseCliArgs(['backup', 'create'])).toEqual({ command: 'backup', dryRun: false });
   });
 
   it('runs import dry-run without touching the database dependency', async () => {
