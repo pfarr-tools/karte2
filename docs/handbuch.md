@@ -26,7 +26,7 @@ Nach dem Aufruf der Webadresse zeigt die Startseite:
 - eine Leaflet-Karte für Baden-Württemberg,
 - eine zugängliche Ergebnisliste neben der Karte,
 - Filter für Freitext und Veröffentlichungskategorie,
-- Marker für bekannte Standorte,
+- geclusterte, nach Kategorie eingefärbte Marker für bekannte Standorte,
 - die Quellenbezeichnung und den Link zum originalen PDF.
 
 Die Liste ist auch ohne Kartennutzung verwendbar. Auf kleinen Bildschirmen ordnen
@@ -43,10 +43,10 @@ Der Kategorienfilter unterscheidet:
 | Verfügbare Pfarrstellen | Interesse kann nach der Quelle registriert werden |
 | Liste zu besetzender Pfarrstellen | Vorabinformation; nicht automatisch bewerbungsoffen |
 
-Die Filter wirken auf Liste, API und CSV-Export gleichermaßen. Die Browser-URL
-enthält den Filterzustand nicht als serverseitig gespeicherte Sitzung; für eine
-Weitergabe kann deshalb die URL des konkreten Browsers verwendet werden, sofern
-der Browser die Query-Parameter beibehält.
+Die Filter wirken auf Liste, API und CSV-Export gleichermaßen. Zusätzlich zu
+Kategorie und Freitext stehen Stellentyp, Dekanat, Beschäftigungsumfang ab/bis
+und Bewerbungsfrist ab/bis zur Verfügung. Der Filterzustand wird in der
+Browser-URL als Query-Parameter gespeichert und kann weitergegeben werden.
 
 ### 2.3 Positionsdetails
 

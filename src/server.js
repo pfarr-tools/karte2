@@ -13,6 +13,8 @@ function publicPage() {
   <title>Pfarrstellenkarte</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 </head>
 <body>
   <main class="container-fluid py-3">
@@ -27,26 +29,37 @@ function publicPage() {
         <form id="filters" class="row g-2 mb-3">
           <div class="col-12"><label class="form-label" for="search">Suche</label><input id="search" name="q" class="form-control" type="search" placeholder="Name, Ort oder Beschreibung"></div>
           <div class="col-12"><label class="form-label" for="category">Kategorie</label><select id="category" name="category" class="form-select"><option value="">Alle</option><option value="advertised">Aktuelle Ausschreibungen</option><option value="available">Verfügbare Pfarrstellen</option><option value="upcoming">Liste zu besetzender Pfarrstellen</option></select></div>
+          <div class="col-12 col-md-6"><label class="form-label" for="type">Stellentyp</label><input id="type" name="type" class="form-control" type="text" placeholder="z. B. Pfarrstelle"></div>
+          <div class="col-12 col-md-6"><label class="form-label" for="deanery">Dekanat</label><input id="deanery" name="deanery" class="form-control" type="text"></div>
+          <div class="col-6"><label class="form-label" for="employmentMin">Beschäftigung ab (%)</label><input id="employmentMin" name="employmentMin" class="form-control" type="number" min="0" max="100"></div>
+          <div class="col-6"><label class="form-label" for="deadlineAfter">Frist ab</label><input id="deadlineAfter" name="deadlineAfter" class="form-control" type="date"></div>
         </form>
         <div id="results" aria-live="polite">Lade Pfarrstellen …</div>
       </div>
     </section>
   </main>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
     const map = L.map('map').setView([48.6, 9.0], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap-Mitwirkende' }).addTo(map);
-    const markers = L.layerGroup().addTo(map);
+    const markers = L.markerClusterGroup({ showCoverageOnHover: false }).addTo(map);
     const results = document.querySelector('#results');
     const form = document.querySelector('#filters');
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+    const categoryColors = { advertised: '#b02a37', available: '#146c43', upcoming: '#664d03' };
+    const markerFor = (location, category) => L.marker([location.latitude, location.longitude], {
+      icon: L.divIcon({ className: 'karte-marker', html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:' + (categoryColors[category] || '#0d6efd') + ';border:2px solid white;box-shadow:0 0 0 1px #333"></span>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+    });
     function render(items) {
       markers.clearLayers();
       results.innerHTML = items.length ? items.map((item) => '<article class="card mb-2"><div class="card-body"><h2 class="h5">' + escapeHtml(item.name) + '</h2><p class="mb-1">' + escapeHtml(item.type || '') + (item.deanery ? ' · ' + escapeHtml(item.deanery) : '') + '</p><p class="mb-1">Kategorie: ' + escapeHtml(item.category) + '</p><p class="small text-body-secondary">Quelle: ' + escapeHtml(item.source.name) + '</p><a href="' + escapeHtml(item.documentUrl) + '">Originaldokument</a></div></article>').join('') : '<p>Keine Pfarrstellen gefunden.</p>';
-      items.flatMap((item) => item.locations).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => L.marker([location.latitude, location.longitude]).bindPopup(escapeHtml(location.name)).addTo(markers));
+      items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => markerFor(location, location.category).bindPopup(escapeHtml(location.name)).addTo(markers));
     }
-    async function load() { const params = new URLSearchParams(new FormData(form)); const response = await fetch('/api/publications?' + params); render((await response.json()).items); }
-    form.addEventListener('input', load); load();
+    function currentParams() { return new URLSearchParams([...new FormData(form)].filter(([, value]) => value !== '')); }
+    function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); }
+    async function load() { const params = currentParams(); history.replaceState(null, '', params.toString() ? '?' + params : window.location.pathname); const response = await fetch('/api/publications?' + params); render((await response.json()).items); }
+    restoreParams(); form.addEventListener('input', load); load();
   </script>
 </body>
 </html>`;
@@ -62,6 +75,12 @@ function publicationItems(database, query) {
     const search = `%${query.q}%`;
     values.push(search, search, search, search, search);
   }
+  if (query.type) { clauses.push('p.type = ?'); values.push(query.type); }
+  if (query.deanery) { clauses.push('p.deanery = ?'); values.push(query.deanery); }
+  if (query.employmentMin !== undefined && query.employmentMin !== '') { clauses.push('p.employment_percentage >= ?'); values.push(Number(query.employmentMin)); }
+  if (query.employmentMax !== undefined && query.employmentMax !== '') { clauses.push('p.employment_percentage <= ?'); values.push(Number(query.employmentMax)); }
+  if (query.deadlineAfter) { clauses.push('pub.application_deadline >= ?'); values.push(query.deadlineAfter); }
+  if (query.deadlineBefore) { clauses.push('pub.application_deadline <= ?'); values.push(query.deadlineBefore); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = database.prepare(`
     SELECT pub.id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage,

@@ -118,6 +118,35 @@ describe('HTTP server', () => {
     expect(page.body).toContain('Originaldokument');
   });
 
+  it('filters by position type, deanery, employment percentage and deadline', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'karte2-server-'));
+    temporaryDirectories.push(root);
+    const testRoot = path.join(root, 'test');
+    const database = openDatabase({ filename: path.join(testRoot, 'database.sqlite'), nodeEnv: 'test', testRoot, runtimeRoot: path.join(root, 'runtime') });
+    databases.push(database);
+    bootstrapDatabase(database);
+    database.prepare(`
+      INSERT INTO positions (stable_slug, normalized_name, type, deanery, employment_percentage)
+      VALUES ('passend', 'Passende Pfarrstelle', 'Pfarrstelle', 'Passenddekanat', 75),
+             ('unpassend', 'Andere Stelle', 'Diakonat', 'Anderesdekanat', 50)
+    `).run();
+    database.prepare(`
+      INSERT INTO publications (position_id, source_id, category, application_deadline, first_seen_at, last_seen_at, current_state)
+      VALUES (1, 'elkw-pfarrstellen', 'advertised', '2026-11-05', '2026-10-19', '2026-10-19', 'current'),
+             (2, 'elkw-pfarrstellen', 'advertised', '2026-10-01', '2026-10-19', '2026-10-19', 'current')
+    `).run();
+    const server = buildServer({ database });
+    servers.push(server);
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/api/publications?type=Pfarrstelle&deanery=Passenddekanat&employmentMin=70&deadlineAfter=2026-11-01',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().items.map((item) => item.name)).toEqual(['Passende Pfarrstelle']);
+  });
+
   it('renders a German public map/list shell with an unofficial disclaimer', async () => {
     const server = buildServer();
     servers.push(server);
@@ -130,6 +159,8 @@ describe('HTTP server', () => {
     expect(response.body).toContain('unoffiziell');
     expect(response.body).toContain('api/publications');
     expect(response.body).toContain('escapeHtml');
+    expect(response.body).toContain('history.replaceState');
+    expect(response.body).toContain('leaflet.markercluster');
   });
 
   it('protects administrative status and issue endpoints with an admin token', async () => {
