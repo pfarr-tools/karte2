@@ -37,6 +37,9 @@ export function parseVacancyText({ title, text }) {
   const locationName = firstMatch(text, [
     /(?:Dienstsitz|Dienstort|Ort)\s*:\s*([^\n]+)/i,
   ]);
+  const appointmentProcedure = firstMatch(text, [
+    /(?:Bewerbungs?|Besetzungs?)verfahren\s*:\s*([^\n]+)/i,
+  ]);
   const percentageMatch = text.match(/(?:umfang|beschäftigungsumfang|stellenumfang)?[^\n]{0,30}?(\d{1,3})\s*%/i);
   const employmentPercentage = percentageMatch ? Number(percentageMatch[1]) : null;
   const fieldCount = [type, deanery, locationName, employmentPercentage].filter((value) => value !== null).length;
@@ -48,6 +51,7 @@ export function parseVacancyText({ title, text }) {
     deanery,
     employmentPercentage,
     locationName,
+    appointmentProcedure,
     employmentDescription: employmentPercentage === null ? null : `${employmentPercentage} %`,
     description: clean(lines.slice(1).join(' ')),
     confidence: fieldCount >= 3 ? 'high' : fieldCount >= 1 ? 'medium' : 'low',

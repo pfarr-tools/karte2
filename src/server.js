@@ -34,6 +34,7 @@ function publicPage() {
           <div class="col-6"><label class="form-label" for="employmentMin">Beschäftigung ab (%)</label><input id="employmentMin" name="employmentMin" class="form-control" type="number" min="0" max="100"></div>
           <div class="col-6"><label class="form-label" for="deadlineAfter">Frist ab</label><input id="deadlineAfter" name="deadlineAfter" class="form-control" type="date"></div>
           <div class="col-12"><label class="form-label" for="sort">Sortierung</label><select id="sort" name="sort" class="form-select"><option value="name">Name</option><option value="deadline">Bewerbungsfrist</option></select></div>
+          <div class="col-12"><label class="form-label" for="procedure">Bewerbungsverfahren</label><input id="procedure" name="procedure" class="form-control" type="search" placeholder="z. B. Wahl"></div>
         </form>
         <div class="btn-group mb-2" role="group" aria-label="Ansicht wählen">
           <button type="button" class="btn btn-outline-primary active" id="mobile-map" aria-pressed="true">Karte</button>
@@ -92,10 +93,11 @@ function publicationItems(database, query) {
   if (query.employmentMax !== undefined && query.employmentMax !== '') { clauses.push('p.employment_percentage <= ?'); values.push(Number(query.employmentMax)); }
   if (query.deadlineAfter) { clauses.push('pub.application_deadline >= ?'); values.push(query.deadlineAfter); }
   if (query.deadlineBefore) { clauses.push('pub.application_deadline <= ?'); values.push(query.deadlineBefore); }
+  if (query.procedure) { clauses.push('pub.appointment_procedure LIKE ?'); values.push(`%${query.procedure}%`); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = database.prepare(`
     SELECT pub.id, p.id AS position_id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage, p.description,
-      pub.category, pub.application_deadline, pub.published_at, pub.current_state, pub.extraction_confidence,
+      pub.category, pub.application_deadline, pub.appointment_procedure, pub.published_at, pub.current_state, pub.extraction_confidence,
       l.name AS location_name, l.address, l.latitude, l.longitude, pl.role,
       s.name AS source_name, s.url AS source_url, d.original_url AS document_url, d.fetched_at
     FROM publications pub
@@ -111,7 +113,7 @@ function publicationItems(database, query) {
   for (const row of rows) {
     if (!items.has(row.id)) items.set(row.id, {
       id: row.id, positionId: row.position_id, name: row.name, category: row.category, type: row.type, deanery: row.deanery,
-      employmentPercentage: row.employment_percentage, deadline: row.application_deadline,
+      employmentPercentage: row.employment_percentage, deadline: row.application_deadline, appointmentProcedure: row.appointment_procedure,
       publishedAt: row.published_at, fetchedAt: row.fetched_at, extractionConfidence: row.extraction_confidence,
       description: row.description, state: row.current_state, locations: [],
       source: { name: row.source_name, url: row.source_url }, documentUrl: row.document_url,

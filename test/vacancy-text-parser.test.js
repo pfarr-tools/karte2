@@ -36,4 +36,11 @@ describe('vacancy text parser', () => {
       text: 'Pfarrstelle Müll­er-Vogt',
     }).normalizedName).toBe('pfarrstelle muller vogt');
   });
+
+  it('extracts an explicitly labelled appointment procedure', () => {
+    expect(parseVacancyText({
+      title: 'Pfarrstelle Beispielort',
+      text: 'Bewerbungsverfahren: Wahl durch den Kirchengemeinderat',
+    }).appointmentProcedure).toBe('Wahl durch den Kirchengemeinderat');
+  });
 });

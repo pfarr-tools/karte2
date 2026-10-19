@@ -124,7 +124,7 @@ describe('page import persistence', () => {
               return {
                 textPath,
                 pageCount: 2,
-                text: 'Pfarrstelle Beispielort\nDekanat: Musterhausen\nDienstsitz: Beispielort\n75 %\n',
+                text: 'Pfarrstelle Beispielort\nDekanat: Musterhausen\nDienstsitz: Beispielort\nBewerbungsverfahren: Wahl\n75 %\n',
               };
       },
     };
@@ -138,8 +138,8 @@ describe('page import persistence', () => {
     expect(database.prepare('SELECT normalized_name, deanery, employment_percentage FROM positions').all()).toEqual([
       { normalized_name: 'pfarrstelle beispielort', deanery: 'Musterhausen', employment_percentage: 75 },
     ]);
-    expect(database.prepare('SELECT category, document_id FROM publications').all()).toEqual([
-      { category: 'advertised', document_id: 1 },
+    expect(database.prepare('SELECT category, document_id, appointment_procedure FROM publications').all()).toEqual([
+      { category: 'advertised', document_id: 1, appointment_procedure: 'Wahl' },
     ]);
     expect(result.issues).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'document-extraction-failed', message: 'malformed PDF' }),

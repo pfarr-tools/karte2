@@ -61,10 +61,10 @@ function persistPublication(database, { candidate, section, documentId, extracte
   if (existingPublication) return { positionId: position.id, publicationId: existingPublication.id, parsed };
 
   const publicationId = Number(database.prepare(`
-    INSERT INTO publications (position_id, source_id, section_id, document_id, category, application_deadline, first_seen_at, last_seen_at, current_state, extraction_confidence)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'current', ?)
+    INSERT INTO publications (position_id, source_id, section_id, document_id, category, application_deadline, appointment_procedure, first_seen_at, last_seen_at, current_state, extraction_confidence)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'current', ?)
   `).run(
-    position.id, candidate.sourceId, section.id, documentId, section.category, section.deadline, observedAt, observedAt, parsed.confidence,
+    position.id, candidate.sourceId, section.id, documentId, section.category, section.deadline, parsed.appointmentProcedure, observedAt, observedAt, parsed.confidence,
   ).lastInsertRowid);
   const insertField = database.prepare(`
     INSERT INTO extracted_fields (publication_id, field_name, raw_value, normalized_value, confidence)

@@ -50,6 +50,9 @@ Browser-URL als Query-Parameter gespeichert und kann weitergegeben werden.
 Auch Kartenzentrum und Zoom werden als `mapLat`, `mapLng` und `mapZoom`
 gespeichert.
 
+Wenn die Quelle ein Bewerbungsverfahren nennt, kann zusätzlich danach gesucht
+werden, etwa mit `procedure=Wahl`.
+
 Die Treffer lassen sich nach Name oder Bewerbungsfrist sortieren. Auf kleinen
 Bildschirmen kann zwischen Karten- und Listenansicht umgeschaltet werden; die
 zugängliche Liste ist auch ohne Kartenbedienung vollständig nutzbar.

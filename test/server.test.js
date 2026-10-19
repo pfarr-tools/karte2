@@ -95,6 +95,7 @@ describe('HTTP server', () => {
         deanery: 'Beispieldekanat',
         employmentPercentage: 75,
         deadline: '2026-11-05',
+        appointmentProcedure: null,
         publishedAt: null,
         fetchedAt: '2026-10-19T12:00:00Z',
         extractionConfidence: null,
@@ -137,9 +138,9 @@ describe('HTTP server', () => {
              ('unpassend', 'Andere Stelle', 'Diakonat', 'Anderesdekanat', 50)
     `).run();
     database.prepare(`
-      INSERT INTO publications (position_id, source_id, category, application_deadline, first_seen_at, last_seen_at, current_state)
-      VALUES (1, 'elkw-pfarrstellen', 'advertised', '2026-11-05', '2026-10-19', '2026-10-19', 'current'),
-             (2, 'elkw-pfarrstellen', 'advertised', '2026-10-01', '2026-10-19', '2026-10-19', 'current')
+      INSERT INTO publications (position_id, source_id, category, application_deadline, appointment_procedure, first_seen_at, last_seen_at, current_state)
+      VALUES (1, 'elkw-pfarrstellen', 'advertised', '2026-11-05', 'Wahl', '2026-10-19', '2026-10-19', 'current'),
+             (2, 'elkw-pfarrstellen', 'advertised', '2026-10-01', 'Berufung', '2026-10-19', '2026-10-19', 'current')
     `).run();
     const server = buildServer({ database });
     servers.push(server);
@@ -154,6 +155,8 @@ describe('HTTP server', () => {
 
     const sorted = await server.inject({ method: 'GET', url: '/api/publications?sort=deadline' });
     expect(sorted.json().items.map((item) => item.name)).toEqual(['Andere Stelle', 'Passende Pfarrstelle']);
+    const procedure = await server.inject({ method: 'GET', url: '/api/publications?procedure=Wahl' });
+    expect(procedure.json().items.map((item) => item.name)).toEqual(['Passende Pfarrstelle']);
   });
 
   it('renders a German public map/list shell with an unofficial disclaimer', async () => {
@@ -175,6 +178,7 @@ describe('HTTP server', () => {
     expect(response.body).toContain('mobile-list');
     expect(response.body).toContain('<table');
     expect(response.body).toContain('name="sort"');
+    expect(response.body).toContain('name="procedure"');
   });
 
   it('protects administrative status and issue endpoints with an admin token', async () => {
