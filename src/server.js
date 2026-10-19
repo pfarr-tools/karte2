@@ -149,7 +149,15 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
     const authorization = request.headers.authorization ?? '';
     if (authorization !== `Bearer ${adminToken}`) return reply.code(401).send({ error: 'Unauthorized' });
   });
-  server.get('/health', async () => ({ status: 'ok' }));
+  server.get('/health', async () => ({
+    status: 'ok',
+    lastSuccessfulImport: database
+      ? database.prepare("SELECT id, source_id, completed_at, counts_json FROM import_runs WHERE status = 'completed' ORDER BY id DESC LIMIT 1").get() ?? null
+      : null,
+    unresolvedIssues: database
+      ? database.prepare('SELECT COUNT(*) AS count FROM import_issues WHERE resolved_at IS NULL').get().count
+      : 0,
+  }));
   server.get('/', async (_, reply) => reply.type('text/html').send(publicPage()));
   server.get('/api/publications', async (request) => ({ items: database ? publicationItems(database, request.query) : [] }));
   server.get('/api/positions/:id', async (request, reply) => {

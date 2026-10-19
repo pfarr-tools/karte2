@@ -12,6 +12,8 @@ parallele Läufe mit einem SQLite-Lock.
 ```bash
 ./karte import --dry-run
 ./karte import
+./karte import --force
+./karte import --file /data/documents/name.pdf
 ./karte geocode
 ```
 
@@ -22,7 +24,10 @@ Treffer erhalten keine Koordinaten und müssen administrativ geprüft werden.
 
 `ADMIN_TOKEN` schützt die Admin-Endpunkte per `Authorization: Bearer ...`:
 
+- `GET /health` mit Laufstatus, letztem erfolgreichen Import und offenen Issues
+
 - `GET /admin/status`
+- `GET /admin/imports`
 - `GET /admin/issues`
 - `POST /admin/import`
 - `POST /admin/documents/:id/reprocess`

@@ -29,7 +29,7 @@ describe('HTTP server', () => {
     const response = await server.inject({ method: 'GET', url: '/health' });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ status: 'ok' });
+    expect(response.json()).toEqual({ status: 'ok', lastSuccessfulImport: null, unresolvedIssues: 0 });
   });
 
   it('bootstraps migrations and the source registry for the application', () => {
