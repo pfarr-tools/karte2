@@ -25,6 +25,19 @@ afterEach(() => {
 });
 
 describe('SQLite database migrations', () => {
+  it('accepts the application configuration databasePath', () => {
+    const paths = makePaths();
+    const database = openDatabase({
+      databasePath: paths.databasePath,
+      nodeEnv: 'test',
+      testRoot: paths.testRoot,
+      runtimeRoot: paths.runtimeRoot,
+    });
+
+    expect(fs.existsSync(paths.databasePath)).toBe(true);
+    database.close();
+  });
+
   it('enables safety pragmas and creates the provenance schema', () => {
     const paths = makePaths();
     const database = openDatabase({

@@ -4,13 +4,14 @@ import Database from 'better-sqlite3';
 import { assertSafeDatabasePath } from './safety.js';
 
 /**
- * @param {{filename: string, nodeEnv: string, testRoot: string, runtimeRoot: string}} options
+ * @param {{filename?: string, databasePath?: string, nodeEnv: string, testRoot: string, runtimeRoot: string}} options
  * @returns {import('better-sqlite3').Database}
  */
-export function openDatabase({ filename, nodeEnv, testRoot, runtimeRoot }) {
+export function openDatabase({ filename, databasePath, nodeEnv, testRoot, runtimeRoot }) {
+  const selectedPath = databasePath ?? filename;
   const safeFilename = nodeEnv === 'test'
-    ? assertSafeDatabasePath({ nodeEnv, databasePath: filename, testRoot, runtimeRoot })
-    : path.resolve(filename);
+    ? assertSafeDatabasePath({ nodeEnv, databasePath: selectedPath, testRoot, runtimeRoot })
+    : path.resolve(selectedPath);
   fs.mkdirSync(path.dirname(safeFilename), { recursive: true });
 
   const database = new Database(safeFilename);
