@@ -19,12 +19,12 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-  up) docker compose -f compose.yaml up -d ;;
+  up) docker compose -f compose.yaml up -d --build ;;
   down) docker compose -f compose.yaml down ;;
   build) docker compose -f compose.yaml build ;;
   logs) docker compose -f compose.yaml logs -f ;;
-  migrate|status|import) docker compose -f compose.yaml run --rm app node src/cli.js "$@" ;;
-  test) docker compose -f compose.yaml -f compose.test.yaml run --rm test ;;
+  migrate|status|import) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
+  test) docker compose -f compose.yaml -f compose.test.yaml run --rm --build test ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $command" >&2; usage >&2; exit 2 ;;
 esac

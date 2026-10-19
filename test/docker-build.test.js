@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 
 const dockerfile = fs.readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
+const wrapper = fs.readFileSync(new URL('../karte', import.meta.url), 'utf8');
 
 describe('Docker build prerequisites', () => {
   it('installs native addon build tools before npm ci', () => {
@@ -10,5 +11,11 @@ describe('Docker build prerequisites', () => {
 
     expect(tools).toBeGreaterThanOrEqual(0);
     expect(npmInstall).toBeGreaterThan(tools);
+  });
+
+  it('rebuilds images before commands that execute copied source', () => {
+    expect(wrapper).toMatch(/up -d --build/);
+    expect(wrapper).toMatch(/run --rm --build app/);
+    expect(wrapper).toMatch(/run --rm --build test/);
   });
 });
