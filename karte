@@ -17,6 +17,7 @@ Commands:
   status   Show database and import status
   import   Import the official ELKW listing page
   geocode  Geocode unresolved locations
+  scheduler Start the optional daily import scheduler
   backup create  Create a database and document backup
   backup restore --yes  Restore a confirmed backup
   test     Run the isolated test service
@@ -32,6 +33,7 @@ case "$command" in
   install) docker compose -f compose.yaml build ;;
   logs) docker compose -f compose.yaml logs -f ;;
   shell) docker compose -f compose.yaml run --rm --build app sh ;;
+  scheduler) docker compose -f compose.yaml --profile scheduler up -d --build scheduler ;;
   migrate|status|import|geocode|backup) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
   test) docker compose -f compose.yaml -f compose.test.yaml run --rm --build test ;;
   help|-h|--help) usage ;;

@@ -9,4 +9,5 @@ export const config = Object.freeze({
   geocoderUrl: process.env.GEOCODER_URL ?? '',
   backupRoot: process.env.BACKUP_ROOT ?? path.resolve('storage/backups'),
   adminToken: process.env.ADMIN_TOKEN ?? '',
+  importIntervalSeconds: Number(process.env.IMPORT_INTERVAL_SECONDS ?? 86_400),
 });

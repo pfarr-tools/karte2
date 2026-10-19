@@ -13,5 +13,19 @@ services:
     volumes:
       - karte-data:/data
 
+  scheduler:
+    profiles: [scheduler]
+    build:
+      context: .
+      target: production
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_PATH: /data/karte.sqlite
+      RUNTIME_ROOT: /data
+      IMPORT_INTERVAL_SECONDS: ${IMPORT_INTERVAL_SECONDS:-86400}
+    volumes:
+      - karte-data:/data
+    command: ["node", "src/scheduler.js"]
+
 volumes:
   karte-data:
