@@ -50,6 +50,17 @@ Use idempotent imports, explicit validation and source-specific status reporting
 5. Run lint/checks and the **isolated** test suite before considering work complete.
 6. Summarize changes, tests run, remaining risks and any unverified external assumptions.
 
+## Documentation maintenance
+
+- The complete German user and administrator manual is `docs/handbuch.md`.
+- Update `docs/handbuch.md` in the same change whenever the CLI, HTTP endpoints,
+  data model, import behavior, configuration, scheduler, backups or public UI
+  changes.
+- Update `docs/operations.md` as well when an operational command, deployment
+  procedure, environment variable or recovery procedure changes.
+- Do not document behavior that is only planned; verify commands and endpoint
+  names against the implementation before committing.
+
 ## CLI and operations
 
 Use the root `./karte` script as the single normal operator entry point. Keep host dependencies to Docker + Compose. Provide safe `--help`, `--dry-run` where relevant, and meaningful nonzero exit codes. Never implicitly reset the database. Keep configuration in documented files and secrets out of git. Preserve backups and stored PDFs across rebuilds.
