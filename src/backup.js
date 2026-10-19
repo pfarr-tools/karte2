@@ -16,3 +16,19 @@ export async function createBackup({ database, databasePath, runtimeRoot, backup
   await fs.writeFile(path.join(destination, 'manifest.json'), JSON.stringify({ createdAt: timestamp, databasePath, includes: ['karte.sqlite', 'documents'] }) + '\n');
   return { destination, database: path.join(destination, 'karte.sqlite'), documents: path.join(destination, 'documents') };
 }
+
+export async function restoreBackup({ backupPath, databasePath, runtimeRoot, confirm = false }) {
+  if (!confirm) throw new Error('Restoring a backup requires explicit confirmation');
+  const source = path.resolve(backupPath);
+  const manifest = JSON.parse(await fs.readFile(path.join(source, 'manifest.json'), 'utf8'));
+  if (!Array.isArray(manifest.includes) || !manifest.includes.includes('karte.sqlite') || !manifest.includes.includes('documents')) {
+    throw new Error('Backup manifest is incomplete');
+  }
+  await fs.access(path.join(source, 'karte.sqlite'));
+  const temporaryDatabase = `${path.resolve(databasePath)}.${process.pid}.restore.tmp`;
+  await fs.copyFile(path.join(source, 'karte.sqlite'), temporaryDatabase);
+  await fs.rename(temporaryDatabase, path.resolve(databasePath));
+  await fs.rm(path.join(runtimeRoot, 'documents'), { recursive: true, force: false });
+  await fs.cp(path.join(source, 'documents'), path.join(runtimeRoot, 'documents'), { recursive: true });
+  return { databasePath: path.resolve(databasePath), runtimeRoot: path.resolve(runtimeRoot) };
+}

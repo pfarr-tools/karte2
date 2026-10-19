@@ -18,6 +18,7 @@ Commands:
   import   Import the official ELKW listing page
   geocode  Geocode unresolved locations
   backup create  Create a database and document backup
+  backup restore --yes  Restore a confirmed backup
   test     Run the isolated test service
 EOF
 }

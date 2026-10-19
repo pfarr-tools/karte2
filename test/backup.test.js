@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { openDatabase } from '../src/db/connection.js';
 import { migrateDatabase } from '../src/db/migrate.js';
-import { createBackup } from '../src/backup.js';
+import { createBackup, restoreBackup } from '../src/backup.js';
 
 const roots = [];
 afterEach(() => { while (roots.length) fs.rmSync(roots.pop(), { recursive: true, force: true }); });
@@ -25,5 +25,10 @@ describe('backup creation', () => {
     expect(fs.readFileSync(path.join(result.documents, 'one.pdf'), 'utf8')).toBe('fixture');
     expect(JSON.parse(fs.readFileSync(path.join(result.destination, 'manifest.json')))).toMatchObject({ includes: ['karte.sqlite', 'documents'] });
     db.close();
+  });
+
+  it('requires explicit confirmation before restoring', async () => {
+    await expect(restoreBackup({ backupPath: '/tmp/no-backup', databasePath: '/tmp/db', runtimeRoot: '/tmp/runtime' }))
+      .rejects.toThrow(/explicit confirmation/);
   });
 });
