@@ -56,7 +56,11 @@ export function parseElkwListingPage(html, { sourceId, pageUrl, observedAt }) {
       const headingCategory = categoryForHeading(text);
       if (headingCategory) {
         category = headingCategory;
-        const round = headingCategory === 'advertised' ? null : null;
+        if (headingCategory === 'advertised') {
+          currentSection = null;
+          return;
+        }
+        const round = null;
         currentSection = {
           key: sectionKey(category, round),
           sourceId,
