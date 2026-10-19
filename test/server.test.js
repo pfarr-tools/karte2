@@ -117,4 +117,15 @@ describe('HTTP server', () => {
     expect(response.body).toContain('api/publications');
     expect(response.body).toContain('escapeHtml');
   });
+
+  it('protects administrative status and issue endpoints with an admin token', async () => {
+    const server = buildServer({ adminToken: 'secret' });
+    servers.push(server);
+
+    const unauthorized = await server.inject({ method: 'GET', url: '/admin/status' });
+    expect(unauthorized.statusCode).toBe(401);
+    const authorized = await server.inject({ method: 'GET', url: '/admin/status', headers: { authorization: 'Bearer secret' } });
+    expect(authorized.statusCode).toBe(200);
+    expect(authorized.json()).toEqual(expect.objectContaining({ positions: 0, documents: 0, unresolvedIssues: 0 }));
+  });
 });

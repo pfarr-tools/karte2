@@ -109,8 +109,14 @@ function publicationsCsv(items) {
   return [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\n') + '\n';
 }
 
-export function buildServer({ database = null } = {}) {
+export function buildServer({ database = null, adminToken = config.adminToken } = {}) {
   const server = Fastify({ logger: true });
+  server.addHook('onRequest', async (request, reply) => {
+    if (!request.url.startsWith('/admin/')) return;
+    if (!adminToken) return reply.code(503).send({ error: 'Admin access is not configured' });
+    const authorization = request.headers.authorization ?? '';
+    if (authorization !== `Bearer ${adminToken}`) return reply.code(401).send({ error: 'Unauthorized' });
+  });
   server.get('/health', async () => ({ status: 'ok' }));
   server.get('/', async (_, reply) => reply.type('text/html').send(publicPage()));
   server.get('/api/publications', async (request) => ({ items: database ? publicationItems(database, request.query) : [] }));
@@ -118,6 +124,18 @@ export function buildServer({ database = null } = {}) {
     .type('text/csv; charset=utf-8')
     .header('content-disposition', 'attachment; filename="pfarrstellen.csv"')
     .send(publicationsCsv(database ? publicationItems(database, request.query) : [])));
+  server.get('/admin/status', async () => {
+    if (!database) return { positions: 0, documents: 0, unresolvedIssues: 0, lastImport: null };
+    return {
+      positions: database.prepare('SELECT COUNT(*) AS count FROM positions').get().count,
+      documents: database.prepare('SELECT COUNT(*) AS count FROM documents').get().count,
+      unresolvedIssues: database.prepare('SELECT COUNT(*) AS count FROM import_issues WHERE resolved_at IS NULL').get().count,
+      lastImport: database.prepare('SELECT id, status, completed_at, counts_json FROM import_runs ORDER BY id DESC LIMIT 1').get() ?? null,
+    };
+  });
+  server.get('/admin/issues', async () => ({ issues: database
+    ? database.prepare('SELECT id, import_run_id, document_id, severity, code, message, context_json FROM import_issues WHERE resolved_at IS NULL ORDER BY id DESC').all()
+    : [] }));
   return server;
 }
 
