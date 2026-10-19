@@ -29,4 +29,11 @@ describe('vacancy text parser', () => {
       confidence: 'low',
     });
   });
+
+  it('normalizes names for deterministic cross-document matching', () => {
+    expect(parseVacancyText({
+      title: 'Pfarrstelle  Müll­er-Vogt',
+      text: 'Pfarrstelle Müll­er-Vogt',
+    }).normalizedName).toBe('pfarrstelle muller vogt');
+  });
 });

@@ -2,6 +2,15 @@ function clean(value) {
   return value?.replace(/\s+/g, ' ').trim() || null;
 }
 
+function normalizeName(value) {
+  return clean(value)?.toLocaleLowerCase('de').normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u00ad/g, '')
+    .replace(/ß/g, 'ss')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim() || null;
+}
+
 function firstMatch(text, patterns) {
   for (const pattern of patterns) {
     const match = text.match(pattern);
@@ -34,7 +43,7 @@ export function parseVacancyText({ title, text }) {
 
   return {
     name,
-    normalizedName: name.toLocaleLowerCase('de'),
+    normalizedName: normalizeName(name),
     type,
     deanery,
     employmentPercentage,
