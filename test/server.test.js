@@ -6,11 +6,15 @@ import { openDatabase } from '../src/db/connection.js';
 import { bootstrapDatabase, buildServer } from '../src/server.js';
 
 const servers = [];
+const databases = [];
 const temporaryDirectories = [];
 
 afterEach(async () => {
   while (servers.length > 0) {
     await servers.pop().close();
+  }
+  while (databases.length > 0) {
+    databases.pop().close();
   }
   while (temporaryDirectories.length > 0) {
     fs.rmSync(temporaryDirectories.pop(), { recursive: true, force: true });
@@ -108,6 +112,10 @@ describe('HTTP server', () => {
     expect(locationUpdate.statusCode).toBe(200);
     expect(database.prepare('SELECT latitude, longitude, geocoding_provider, geocoding_confidence FROM locations WHERE id = 1').get())
       .toEqual({ latitude: 48.51, longitude: 9.11, geocoding_provider: 'manual', geocoding_confidence: 'verified' });
+    const page = await server.inject({ method: 'GET', url: '/position/1' });
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain('Beispielpfarrstelle');
+    expect(page.body).toContain('Originaldokument');
     database.close();
   });
 
@@ -139,5 +147,22 @@ describe('HTTP server', () => {
     expect(manualImport.statusCode).toBe(200);
     expect(manualImport.json()).toEqual({ status: 'completed' });
     expect(importCalls).toBe(1);
+  });
+
+  it('stores a validated editorial override with history', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'karte2-server-'));
+    temporaryDirectories.push(root);
+    const testRoot = path.join(root, 'test');
+    const database = openDatabase({ filename: path.join(testRoot, 'database.sqlite'), nodeEnv: 'test', testRoot, runtimeRoot: path.join(root, 'runtime') });
+    databases.push(database);
+    bootstrapDatabase(database);
+    database.prepare("INSERT INTO positions (stable_slug, normalized_name, deanery) VALUES ('test', 'Teststelle', 'Import')").run();
+    const server = buildServer({ database, adminToken: 'secret' });
+    servers.push(server);
+    const response = await server.inject({ method: 'POST', url: '/admin/positions/1/overrides', headers: { authorization: 'Bearer secret', 'content-type': 'application/json' }, payload: { field: 'deanery', value: 'Redaktion', editor: 'admin', reason: 'geprüft' } });
+    expect(response.statusCode).toBe(200);
+    expect(database.prepare('SELECT deanery FROM positions WHERE id = 1').get()).toEqual({ deanery: 'Redaktion' });
+    expect(database.prepare('SELECT field_name, override_value, reason FROM position_overrides').all()).toEqual([{ field_name: 'deanery', override_value: 'Redaktion', reason: 'geprüft' }]);
+    expect(database.prepare('SELECT event_type FROM position_history').all()).toEqual([{ event_type: 'editorial-override' }]);
   });
 });

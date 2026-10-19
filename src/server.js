@@ -110,6 +110,15 @@ function publicationsCsv(items) {
   return [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\n') + '\n';
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+}
+
+function positionDetailPage(item) {
+  const publications = item.publications.map((publication) => `<li>${escapeHtml(publication.category)} – <a href="${escapeHtml(publication.documentUrl)}">Originaldokument</a> (Quelle: ${escapeHtml(publication.source.name)})</li>`).join('');
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(item.position.name)} – Pfarrstellenkarte</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body><main class="container py-4"><a href="/">← Zur Übersicht</a><h1 class="mt-3">${escapeHtml(item.position.name)}</h1><p>${escapeHtml(item.position.type)}${item.position.deanery ? ` · ${escapeHtml(item.position.deanery)}` : ''}</p><h2 class="h4">Standorte</h2><ul>${item.position.locations.map((location) => `<li>${escapeHtml(location.name)}${location.address ? `, ${escapeHtml(location.address)}` : ''}</li>`).join('')}</ul><h2 class="h4">Veröffentlichungen und Quellen</h2><ul>${publications}</ul><p class="alert alert-warning">Unverbindliche Übersicht. Maßgeblich sind die originalen ELKW-Dokumente.</p></main></body></html>`;
+}
+
 export function buildServer({ database = null, adminToken = config.adminToken, importRunner = null } = {}) {
   const server = Fastify({ logger: true });
   server.addHook('onRequest', async (request, reply) => {
@@ -128,6 +137,14 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
       position: { id: Number(request.params.id), name: items[0].name, type: items[0].type, deanery: items[0].deanery, locations: items[0].locations },
       publications: items,
     };
+  });
+  server.get('/position/:id', async (request, reply) => {
+    const items = database ? publicationItems(database, { positionId: request.params.id }) : [];
+    if (!items.length) return reply.code(404).send({ error: 'Position not found' });
+    return reply.type('text/html').send(positionDetailPage({
+      position: { name: items[0].name, type: items[0].type, deanery: items[0].deanery, locations: items[0].locations },
+      publications: items,
+    }));
   });
   server.get('/api/publications.csv', async (request, reply) => reply
     .type('text/csv; charset=utf-8')
@@ -173,6 +190,22 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
     `).run(latitude, longitude, Number(request.params.id));
     if (!result?.changes) return reply.code(404).send({ error: 'Location not found' });
     return { status: 'updated', locationId: Number(request.params.id) };
+  });
+  server.post('/admin/positions/:id/overrides', async (request, reply) => {
+    const allowedFields = new Set(['type', 'deanery', 'employment_percentage', 'employment_description', 'description']);
+    const { field, value, editor, reason } = request.body ?? {};
+    if (!allowedFields.has(field) || value === undefined || !String(editor ?? '').trim() || !String(reason ?? '').trim()) {
+      return reply.code(400).send({ error: 'field, value, editor and reason are required' });
+    }
+    const positionId = Number(request.params.id);
+    const position = database?.prepare('SELECT * FROM positions WHERE id = ?').get(positionId);
+    if (!position) return reply.code(404).send({ error: 'Position not found' });
+    database.transaction(() => {
+      database.prepare(`INSERT INTO position_overrides (position_id, field_name, override_value, editor, reason, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(position_id, field_name) DO UPDATE SET override_value = excluded.override_value, editor = excluded.editor, reason = excluded.reason, updated_at = excluded.updated_at`).run(positionId, field, String(value), String(editor), String(reason));
+      database.prepare(`UPDATE positions SET ${field} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(value, positionId);
+      database.prepare('INSERT INTO position_history (position_id, event_type, before_json, after_json, occurred_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)').run(positionId, 'editorial-override', JSON.stringify({ [field]: position[field] }), JSON.stringify({ [field]: value }));
+    })();
+    return { status: 'updated', positionId, field };
   });
   return server;
 }
