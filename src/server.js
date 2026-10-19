@@ -56,6 +56,7 @@ function publicationItems(database, query) {
   const clauses = [];
   const values = [];
   if (query.category) { clauses.push('pub.category = ?'); values.push(query.category); }
+  if (query.positionId) { clauses.push('p.id = ?'); values.push(Number(query.positionId)); }
   if (query.q) {
     clauses.push(`(p.normalized_name LIKE ? OR p.description LIKE ? OR p.deanery LIKE ? OR l.name LIKE ? OR l.address LIKE ?)`);
     const search = `%${query.q}%`;
@@ -109,7 +110,7 @@ function publicationsCsv(items) {
   return [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\n') + '\n';
 }
 
-export function buildServer({ database = null, adminToken = config.adminToken } = {}) {
+export function buildServer({ database = null, adminToken = config.adminToken, importRunner = null } = {}) {
   const server = Fastify({ logger: true });
   server.addHook('onRequest', async (request, reply) => {
     if (!request.url.startsWith('/admin/')) return;
@@ -120,6 +121,14 @@ export function buildServer({ database = null, adminToken = config.adminToken } 
   server.get('/health', async () => ({ status: 'ok' }));
   server.get('/', async (_, reply) => reply.type('text/html').send(publicPage()));
   server.get('/api/publications', async (request) => ({ items: database ? publicationItems(database, request.query) : [] }));
+  server.get('/api/positions/:id', async (request, reply) => {
+    const items = database ? publicationItems(database, { positionId: request.params.id }) : [];
+    if (!items.length) return reply.code(404).send({ error: 'Position not found' });
+    return {
+      position: { id: Number(request.params.id), name: items[0].name, type: items[0].type, deanery: items[0].deanery, locations: items[0].locations },
+      publications: items,
+    };
+  });
   server.get('/api/publications.csv', async (request, reply) => reply
     .type('text/csv; charset=utf-8')
     .header('content-disposition', 'attachment; filename="pfarrstellen.csv"')
@@ -136,6 +145,13 @@ export function buildServer({ database = null, adminToken = config.adminToken } 
   server.get('/admin/issues', async () => ({ issues: database
     ? database.prepare('SELECT id, import_run_id, document_id, severity, code, message, context_json FROM import_issues WHERE resolved_at IS NULL ORDER BY id DESC').all()
     : [] }));
+  server.post('/admin/import', async (_, reply) => {
+    const runner = importRunner ?? (async () => {
+      const { runCli } = await import('./cli.js');
+      return runCli(['import'], { database });
+    });
+    return reply.send(await runner());
+  });
   return server;
 }
 

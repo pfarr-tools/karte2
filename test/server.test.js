@@ -101,6 +101,9 @@ describe('HTTP server', () => {
     expect(csv.headers['content-type']).toMatch(/text\/csv/);
     expect(csv.body).toContain('Name;Kategorie;Dekanat;Ort;Quelle;Originaldokument');
     expect(csv.body).toContain('Beispielpfarrstelle;advertised;Beispieldekanat;Beispielort;Ausschreibungen und Liste zu besetzender Pfarrstellen;https://www.elk-wue.de/beispiel.pdf');
+    const detail = await server.inject({ method: 'GET', url: '/api/positions/1' });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().publications[0]).toMatchObject({ documentUrl: 'https://www.elk-wue.de/beispiel.pdf' });
     database.close();
   });
 
@@ -119,7 +122,8 @@ describe('HTTP server', () => {
   });
 
   it('protects administrative status and issue endpoints with an admin token', async () => {
-    const server = buildServer({ adminToken: 'secret' });
+    let importCalls = 0;
+    const server = buildServer({ adminToken: 'secret', importRunner: async () => { importCalls += 1; return { status: 'completed' }; } });
     servers.push(server);
 
     const unauthorized = await server.inject({ method: 'GET', url: '/admin/status' });
@@ -127,5 +131,9 @@ describe('HTTP server', () => {
     const authorized = await server.inject({ method: 'GET', url: '/admin/status', headers: { authorization: 'Bearer secret' } });
     expect(authorized.statusCode).toBe(200);
     expect(authorized.json()).toEqual(expect.objectContaining({ positions: 0, documents: 0, unresolvedIssues: 0 }));
+    const manualImport = await server.inject({ method: 'POST', url: '/admin/import', headers: { authorization: 'Bearer secret' } });
+    expect(manualImport.statusCode).toBe(200);
+    expect(manualImport.json()).toEqual({ status: 'completed' });
+    expect(importCalls).toBe(1);
   });
 });
