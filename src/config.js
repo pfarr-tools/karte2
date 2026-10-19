@@ -6,4 +6,5 @@ export const config = Object.freeze({
   runtimeRoot: process.env.RUNTIME_ROOT ?? path.resolve('storage'),
   testRoot: process.env.TEST_ROOT ?? path.resolve('.test-data'),
   port: Number(process.env.PORT ?? 3000),
+  geocoderUrl: process.env.GEOCODER_URL ?? '',
 });

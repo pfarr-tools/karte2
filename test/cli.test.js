@@ -10,6 +10,7 @@ describe('CLI arguments', () => {
     expect(() => parseCliArgs(['import', '--force-delete'])).toThrow(/unknown option/);
     expect(parseCliArgs(['migrate'])).toEqual({ command: 'migrate', dryRun: false });
     expect(parseCliArgs(['status'])).toEqual({ command: 'status', dryRun: false });
+    expect(parseCliArgs(['geocode', '--dry-run'])).toEqual({ command: 'geocode', dryRun: true });
   });
 
   it('runs import dry-run without touching the database dependency', async () => {

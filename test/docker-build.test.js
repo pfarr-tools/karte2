@@ -23,5 +23,6 @@ describe('Docker build prerequisites', () => {
     expect(wrapper).toMatch(/restart\)/);
     expect(wrapper).toMatch(/shell\)/);
     expect(wrapper).toMatch(/install\)/);
+    expect(wrapper).toMatch(/geocode\)/);
   });
 });

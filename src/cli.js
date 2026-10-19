@@ -6,6 +6,7 @@ import { downloadDocument } from './import/document-fetcher.js';
 import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
 import { extractPdfText } from './import/pdf-extractor.js';
+import { geocodeLocations } from './import/geocoder.js';
 
 const usage = `Usage: node src/cli.js <command>
 
@@ -14,6 +15,8 @@ Commands:
   status               Show database and source status
   import               Fetch and persist the official ELKW listing page
   import --dry-run     Fetch and parse without writing SQLite
+  geocode              Geocode unresolved locations using the configured provider
+  geocode --dry-run    Inspect unresolved locations without writing
 `;
 
 export function parseCliArgs(argv) {
@@ -21,7 +24,7 @@ export function parseCliArgs(argv) {
   const options = argv.slice(1);
   const unknown = options.find((option) => option !== '--dry-run');
   if (unknown) throw new Error(`unknown option: ${unknown}`);
-  if (!['help', 'migrate', 'status', 'import'].includes(command)) {
+  if (!['help', 'migrate', 'status', 'import', 'geocode'].includes(command)) {
     throw new Error(`unknown command: ${command}`);
   }
   return { command, dryRun: options.includes('--dry-run') };
@@ -60,6 +63,19 @@ export async function runCli(argv, dependencies = {}) {
     const sourceCount = database.prepare('SELECT COUNT(*) AS count FROM sources').get().count;
     const importCount = database.prepare('SELECT COUNT(*) AS count FROM import_runs').get().count;
     stdout.write(JSON.stringify({ sourceCount, importCount }) + '\n');
+    return 0;
+  }
+
+  if (args.command === 'geocode') {
+    const database = dependencies.database ?? openDatabase(config);
+    migrateDatabase(database);
+    const result = await geocodeLocations({
+      database,
+      providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
+      fetchImpl: dependencies.fetchImpl,
+      dryRun: args.dryRun,
+    });
+    stdout.write(JSON.stringify(result) + '\n');
     return 0;
   }
 

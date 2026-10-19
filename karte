@@ -16,6 +16,7 @@ Commands:
   migrate  Apply migrations and source registry synchronization
   status   Show database and import status
   import   Import the official ELKW listing page
+  geocode  Geocode unresolved locations
   test     Run the isolated test service
 EOF
 }
@@ -29,7 +30,7 @@ case "$command" in
   install) docker compose -f compose.yaml build ;;
   logs) docker compose -f compose.yaml logs -f ;;
   shell) docker compose -f compose.yaml run --rm --build app sh ;;
-  migrate|status|import) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
+  migrate|status|import|geocode) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
   test) docker compose -f compose.yaml -f compose.test.yaml run --rm --build test ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $command" >&2; usage >&2; exit 2 ;;
