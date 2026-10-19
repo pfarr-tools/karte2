@@ -8,9 +8,9 @@ function recordIssue(database, importRunId, issue) {
 }
 
 /**
- * @param {{database: import('better-sqlite3').Database, html: string, sourceId: string, pageUrl: string, observedAt: string, downloadDocumentImpl: Function}} options
+ * @param {{database: import('better-sqlite3').Database, html: string, sourceId: string, pageUrl: string, observedAt: string, downloadDocumentImpl: Function, extractDocumentImpl?: Function}} options
  */
-export async function runPageImport({ database, html, sourceId, pageUrl, observedAt, downloadDocumentImpl }) {
+export async function runPageImport({ database, html, sourceId, pageUrl, observedAt, downloadDocumentImpl, extractDocumentImpl }) {
   const importRun = database.prepare(`
     INSERT INTO import_runs (source_id, started_at, status, counts_json)
     VALUES (?, ?, 'running', '{}')
@@ -57,20 +57,49 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
       INSERT INTO documents (source_id, original_url, local_path, sha256, mime_type, fetched_at, extraction_status)
       VALUES (?, ?, ?, ?, ?, ?, 'pending')
     `);
+    const updateExtraction = database.prepare(`
+      UPDATE documents SET extracted_text_path = ?, extraction_status = ?, metadata_json = ? WHERE id = ?
+    `);
     for (const candidate of parsed.documents) {
       try {
         const artifact = await downloadDocumentImpl({ url: candidate.originalUrl, sourceId });
         const existing = findDocument.get(sourceId, artifact.originalUrl, artifact.sha256);
         if (!existing) {
-          insertDocument.run(
+          const documentId = Number(insertDocument.run(
             sourceId,
             artifact.originalUrl,
             artifact.localPath,
             artifact.sha256,
             artifact.mimeType,
             artifact.fetchedAt,
-          );
+          ).lastInsertRowid);
           counts.documents += 1;
+          if (extractDocumentImpl) {
+            const textPath = artifact.localPath.replace(/([\\/])documents([\\/])([^\\/]+)\.pdf$/i, '$1documents$2$3.txt');
+            try {
+              const extraction = await extractDocumentImpl({
+                documentId,
+                pdfPath: artifact.localPath,
+                textPath,
+              });
+              updateExtraction.run(
+                extraction.textPath,
+                'success',
+                JSON.stringify({ pageCount: extraction.pageCount }),
+                documentId,
+              );
+            } catch (error) {
+              updateExtraction.run(null, 'failed', JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), documentId);
+              const issue = {
+                code: 'document-extraction-failed',
+                message: error instanceof Error ? error.message : String(error),
+                documentId,
+                context: { url: artifact.originalUrl },
+              };
+              issues.push(issue);
+              recordIssue(database, importRunId, issue);
+            }
+          }
         }
       } catch (error) {
         const issue = {

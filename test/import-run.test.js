@@ -104,4 +104,33 @@ describe('page import persistence', () => {
     expect(database.prepare('SELECT COUNT(*) AS count FROM documents').get().count).toBe(2);
     database.close();
   });
+
+  it('extracts new documents and records an isolated extraction failure', async () => {
+    const database = makeDatabase();
+    const extractionCalls = [];
+    const options = {
+      database,
+      html,
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, url.endsWith('one.pdf') ? 'hash-one' : 'hash-two'),
+      extractDocumentImpl: async ({ documentId, pdfPath, textPath }) => {
+        extractionCalls.push({ documentId, pdfPath, textPath });
+        if (documentId === 2) throw new Error('malformed PDF');
+        return { textPath, pageCount: 2 };
+      },
+    };
+
+    const result = await runPageImport(options);
+
+    expect(extractionCalls).toHaveLength(2);
+    expect(database.prepare("SELECT extraction_status, extracted_text_path, metadata_json FROM documents WHERE id = 1").get())
+      .toEqual({ extraction_status: 'success', extracted_text_path: '/data/documents/hash-one.txt', metadata_json: '{"pageCount":2}' });
+    expect(database.prepare('SELECT extraction_status FROM documents WHERE id = 2').get()).toEqual({ extraction_status: 'failed' });
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'document-extraction-failed', message: 'malformed PDF' }),
+    ]));
+    database.close();
+  });
 });

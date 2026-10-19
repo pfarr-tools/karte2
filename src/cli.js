@@ -5,6 +5,7 @@ import { syncSourceDefinitions, sourceDefinitions } from './db/source-registry.j
 import { downloadDocument } from './import/document-fetcher.js';
 import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
+import { extractPdfText } from './import/pdf-extractor.js';
 
 const usage = `Usage: node src/cli.js <command>
 
@@ -88,6 +89,7 @@ export async function runCli(argv, dependencies = {}) {
       storageRoot: config.runtimeRoot,
       allowedHosts: [new URL(source.url).hostname],
     }),
+    extractDocumentImpl: dependencies.extractDocumentImpl ?? extractPdfText,
   });
   stdout.write(JSON.stringify(result) + '\n');
   return 0;
