@@ -16,6 +16,7 @@ Commands:
   migrate  Apply migrations and source registry synchronization
   status   Show database and import status
   import   Import the official ELKW listing page
+           --dry-run, --force and --file PATH are supported
   geocode  Geocode unresolved locations
   scheduler Start the optional daily import scheduler
   backup create  Create a database and document backup

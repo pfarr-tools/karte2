@@ -6,6 +6,7 @@ import { downloadDocument } from './import/document-fetcher.js';
 import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
 import { extractPdfText } from './import/pdf-extractor.js';
+import { reprocessDocument } from './import/document-reprocessor.js';
 import { geocodeLocations } from './import/geocoder.js';
 import { createBackup, restoreBackup } from './backup.js';
 
@@ -16,6 +17,8 @@ Commands:
   status               Show database and source status
   import               Fetch and persist the official ELKW listing page
   import --dry-run     Fetch and parse without writing SQLite
+  import --force       Re-extract already stored document versions
+  import --file PATH   Reprocess one already stored PDF
   geocode              Geocode unresolved locations using the configured provider
   geocode --dry-run    Inspect unresolved locations without writing
   backup create         Create a consistent SQLite and document backup
@@ -26,13 +29,26 @@ export function parseCliArgs(argv) {
   const command = argv[0] ?? 'help';
   const options = argv.slice(1);
   const restorePathIndex = command === 'backup' && options.indexOf('restore') >= 0 ? options.indexOf('restore') + 1 : -1;
-  const unknown = options.find((option, index) => option !== '--dry-run' && option !== '--yes'
-    && index !== restorePathIndex && !(command === 'backup' && ['create', 'restore'].includes(option)));
+  let file = null;
+  const known = new Set(['--dry-run', '--yes', '--force']);
+  const unknown = options.find((option, index) => {
+    if (option === '--file') {
+      const value = options[index + 1];
+      if (!value || value.startsWith('-')) return true;
+      file = value;
+      return false;
+    }
+    if (index === restorePathIndex || (command === 'backup' && ['create', 'restore'].includes(option))) return false;
+    if (index > 0 && options[index - 1] === '--file') return false;
+    return !known.has(option);
+  });
   if (unknown) throw new Error(`unknown option: ${unknown}`);
   if (!['help', 'migrate', 'status', 'import', 'geocode', 'backup'].includes(command)) {
     throw new Error(`unknown command: ${command}`);
   }
-  return { command, dryRun: options.includes('--dry-run') };
+  if (file && command !== 'import') throw new Error('--file is only valid for import');
+  if (options.includes('--force') && command !== 'import') throw new Error('--force is only valid for import');
+  return { command, dryRun: options.includes('--dry-run'), force: options.includes('--force'), file };
 }
 
 async function fetchPage(url, fetchImpl = fetch) {
@@ -79,6 +95,24 @@ export async function runCli(argv, dependencies = {}) {
       providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
       fetchImpl: dependencies.fetchImpl,
       dryRun: args.dryRun,
+    });
+    stdout.write(JSON.stringify(result) + '\n');
+    return 0;
+  }
+
+  if (args.file) {
+    if (args.dryRun) throw new Error('--file cannot be combined with --dry-run');
+    const database = dependencies.database ?? openDatabase(config);
+    if (!dependencies.database) {
+      migrateDatabase(database);
+      syncSourceDefinitions(database, sourceDefinitions);
+    }
+    const document = database.prepare('SELECT id, local_path FROM documents WHERE local_path = ?').get(args.file);
+    if (!document) throw new Error(`Stored document not found: ${args.file}`);
+    const result = await (dependencies.reprocessDocumentImpl ?? reprocessDocument)({
+      database,
+      documentId: document.id,
+      extractDocumentImpl: dependencies.extractDocumentImpl ?? extractPdfText,
     });
     stdout.write(JSON.stringify(result) + '\n');
     return 0;
@@ -135,6 +169,7 @@ export async function runCli(argv, dependencies = {}) {
       allowedHosts: [new URL(source.url).hostname],
     }),
     extractDocumentImpl: dependencies.extractDocumentImpl ?? extractPdfText,
+    force: args.force,
   });
   stdout.write(JSON.stringify(result) + '\n');
   return 0;

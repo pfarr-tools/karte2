@@ -97,6 +97,8 @@ ein altes Image einen veralteten Quellstand ausführt.
 | `./karte status` | Basisstatus von Quellen und Importen ausgeben |
 | `./karte import` | ELKW-Seite laden, PDFs speichern, extrahieren und importieren |
 | `./karte import --dry-run` | Seite laden und analysieren, ohne SQLite zu ändern |
+| `./karte import --force` | Bereits gespeicherte PDF-Versionen erneut extrahieren |
+| `./karte import --file /data/documents/name.pdf` | Eine gespeicherte PDF-Version gezielt erneut verarbeiten |
 | `./karte geocode` | Offene Standorte über den konfigurierten Dienst geocodieren |
 | `./karte geocode --dry-run` | Geocoding prüfen, ohne Standorte zu ändern |
 | `./karte scheduler` | Optionalen täglichen Import-Scheduler starten |

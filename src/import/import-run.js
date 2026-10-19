@@ -71,7 +71,7 @@ function persistPublication(database, { candidate, section, documentId, extracte
 /**
  * @param {{database: import('better-sqlite3').Database, html: string, sourceId: string, pageUrl: string, observedAt: string, downloadDocumentImpl: Function, extractDocumentImpl?: Function}} options
  */
-export async function runPageImport({ database, html, sourceId, pageUrl, observedAt, downloadDocumentImpl, extractDocumentImpl }) {
+export async function runPageImport({ database, html, sourceId, pageUrl, observedAt, downloadDocumentImpl, extractDocumentImpl, force = false }) {
   const importRun = database.prepare(`
     INSERT INTO import_runs (source_id, started_at, status, counts_json)
     VALUES (?, ?, 'running', '{}')
@@ -124,7 +124,7 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
     }
 
     const findDocument = database.prepare(`
-      SELECT id FROM documents WHERE source_id = ? AND original_url = ? AND sha256 = ?
+      SELECT id, local_path FROM documents WHERE source_id = ? AND original_url = ? AND sha256 = ?
     `);
     const insertDocument = database.prepare(`
       INSERT INTO documents (source_id, original_url, local_path, sha256, mime_type, fetched_at, extraction_status)
@@ -137,8 +137,7 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
       try {
         const artifact = await downloadDocumentImpl({ url: candidate.originalUrl, sourceId });
         const existing = findDocument.get(sourceId, artifact.originalUrl, artifact.sha256);
-        if (!existing) {
-          const documentId = Number(insertDocument.run(
+        const documentId = existing?.id ?? Number(insertDocument.run(
             sourceId,
             artifact.originalUrl,
             artifact.localPath,
@@ -146,9 +145,12 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
             artifact.mimeType,
             artifact.fetchedAt,
           ).lastInsertRowid);
+        if (!existing) {
           counts.documents += 1;
-          if (extractDocumentImpl) {
-            const textPath = artifact.localPath.replace(/([\\/])documents([\\/])([^\\/]+)\.pdf$/i, '$1documents$2$3.txt');
+        }
+        if (extractDocumentImpl && (!existing || force)) {
+          const storedDocument = existing ?? { local_path: artifact.localPath };
+          const textPath = storedDocument.local_path.replace(/([\\/])documents([\\/])([^\\/]+)\.pdf$/i, '$1documents$2$3.txt');
             try {
               const extraction = await extractDocumentImpl({
                 documentId,
@@ -180,7 +182,6 @@ export async function runPageImport({ database, html, sourceId, pageUrl, observe
               issues.push(issue);
               recordIssue(database, importRunId, issue);
             }
-          }
         }
       } catch (error) {
         const issue = {

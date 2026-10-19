@@ -173,4 +173,28 @@ describe('page import persistence', () => {
       .toEqual({ deanery: 'Redaktionelles Dekanat', employment_percentage: 50 });
     database.close();
   });
+
+  it('force reprocesses an existing document without creating a duplicate', async () => {
+    const database = makeDatabase();
+    const options = {
+      database,
+      html: '<h2>Aktuelle Ausschreibungen</h2><h3>Ausschreibungen zum 15. Oktober 2026 - Bewerbungsschluss zum 5. November 2026</h3><a href="/downloads/one.pdf">Eine Stelle (PDF)</a>',
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, 'hash-one'),
+      extractDocumentImpl: async ({ textPath }) => ({ textPath, pageCount: 1, text: 'Pfarrstelle Beispielort\nDienstsitz: Beispielort\n' }),
+    };
+    const first = await runPageImport(options);
+    expect(first.status).toBe('completed');
+    database.prepare("UPDATE documents SET extraction_status = 'failed', extracted_text_path = NULL").run();
+
+    const forced = await runPageImport({ ...options, force: true });
+
+    expect(forced.status).toBe('completed');
+    expect(database.prepare('SELECT COUNT(*) AS count FROM documents').get().count).toBe(1);
+    expect(database.prepare('SELECT extraction_status FROM documents').get()).toEqual({ extraction_status: 'success' });
+    expect(database.prepare('SELECT COUNT(*) AS count FROM publications').get().count).toBe(1);
+    database.close();
+  });
 });
