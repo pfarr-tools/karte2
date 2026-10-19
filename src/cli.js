@@ -7,7 +7,7 @@ import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
 import { extractPdfText } from './import/pdf-extractor.js';
 import { geocodeLocations } from './import/geocoder.js';
-import { createBackup } from './backup.js';
+import { createBackup, restoreBackup } from './backup.js';
 
 const usage = `Usage: node src/cli.js <command>
 
@@ -19,12 +19,15 @@ Commands:
   geocode              Geocode unresolved locations using the configured provider
   geocode --dry-run    Inspect unresolved locations without writing
   backup create         Create a consistent SQLite and document backup
+  backup restore --yes  Restore a backup with explicit confirmation
 `;
 
 export function parseCliArgs(argv) {
   const command = argv[0] ?? 'help';
   const options = argv.slice(1);
-  const unknown = options.find((option) => option !== '--dry-run' && !(command === 'backup' && option === 'create'));
+  const restorePathIndex = command === 'backup' && options.indexOf('restore') >= 0 ? options.indexOf('restore') + 1 : -1;
+  const unknown = options.find((option, index) => option !== '--dry-run' && option !== '--yes'
+    && index !== restorePathIndex && !(command === 'backup' && ['create', 'restore'].includes(option)));
   if (unknown) throw new Error(`unknown option: ${unknown}`);
   if (!['help', 'migrate', 'status', 'import', 'geocode', 'backup'].includes(command)) {
     throw new Error(`unknown command: ${command}`);
@@ -82,7 +85,17 @@ export async function runCli(argv, dependencies = {}) {
   }
 
   if (args.command === 'backup') {
-    if (!argv.includes('create')) throw new Error('backup requires the create subcommand');
+    if (argv.includes('restore')) {
+      const result = await restoreBackup({
+        backupPath: argv[argv.indexOf('restore') + 1],
+        databasePath: config.databasePath,
+        runtimeRoot: config.runtimeRoot,
+        confirm: argv.includes('--yes'),
+      });
+      stdout.write(JSON.stringify(result) + '\n');
+      return 0;
+    }
+    if (!argv.includes('create')) throw new Error('backup requires the create or restore subcommand');
     const database = dependencies.database ?? openDatabase(config);
     migrateDatabase(database);
     const result = await createBackup({
