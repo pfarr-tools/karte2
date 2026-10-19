@@ -8,8 +8,11 @@ Usage: ./karte <command>
 Commands:
   up       Start the application
   down     Stop the application
+  restart  Restart the application
   build    Build the application image
+  install  Build the application image and dependencies
   logs     Follow application logs
+  shell    Open a shell in the application container
   migrate  Apply migrations and source registry synchronization
   status   Show database and import status
   import   Import the official ELKW listing page
@@ -21,8 +24,11 @@ command="${1:-help}"
 case "$command" in
   up) docker compose -f compose.yaml up -d --build ;;
   down) docker compose -f compose.yaml down ;;
+  restart) docker compose -f compose.yaml down && docker compose -f compose.yaml up -d --build ;;
   build) docker compose -f compose.yaml build ;;
+  install) docker compose -f compose.yaml build ;;
   logs) docker compose -f compose.yaml logs -f ;;
+  shell) docker compose -f compose.yaml run --rm --build app sh ;;
   migrate|status|import) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
   test) docker compose -f compose.yaml -f compose.test.yaml run --rm --build test ;;
   help|-h|--help) usage ;;

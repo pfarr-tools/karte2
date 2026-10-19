@@ -18,4 +18,10 @@ describe('Docker build prerequisites', () => {
     expect(wrapper).toMatch(/run --rm --build app/);
     expect(wrapper).toMatch(/run --rm --build test/);
   });
+
+  it('exposes the documented operational wrapper commands', () => {
+    expect(wrapper).toMatch(/restart\)/);
+    expect(wrapper).toMatch(/shell\)/);
+    expect(wrapper).toMatch(/install\)/);
+  });
 });
