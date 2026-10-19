@@ -152,6 +152,15 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
     });
     return reply.send(await runner());
   });
+  server.post('/admin/documents/:id/reprocess', async (request, reply) => {
+    const { reprocessDocument } = await import('./import/document-reprocessor.js');
+    const { extractPdfText } = await import('./import/pdf-extractor.js');
+    return reply.send(await reprocessDocument({
+      database,
+      documentId: Number(request.params.id),
+      extractDocumentImpl: extractPdfText,
+    }));
+  });
   return server;
 }
 
