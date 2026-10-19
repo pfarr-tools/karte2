@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: ./karte <command>
+
+Commands:
+  up       Start the application
+  down     Stop the application
+  build    Build the application image
+  logs     Follow application logs
+  test     Run the isolated test service
+EOF
+}
+
+command="${1:-help}"
+case "$command" in
+  up) docker compose -f compose.yaml up -d ;;
+  down) docker compose -f compose.yaml down ;;
+  build) docker compose -f compose.yaml build ;;
+  logs) docker compose -f compose.yaml logs -f ;;
+  test) docker compose -f compose.yaml -f compose.test.yaml run --rm test ;;
+  help|-h|--help) usage ;;
+  *) echo "Unknown command: $command" >&2; usage >&2; exit 2 ;;
+esac

@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      target: production
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_PATH: /data/karte.sqlite
+      RUNTIME_ROOT: /data
+      PORT: ${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - karte-data:/data
+
+volumes:
+  karte-data:

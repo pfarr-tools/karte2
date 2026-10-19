@@ -1,0 +1,19 @@
+services:
+  test:
+    build:
+      context: .
+      target: test
+    command: >-
+      sh -c 'test_root=$$(mktemp -d /tmp/karte2-test.XXXXXX) &&
+      export TEST_ROOT=$$test_root DATABASE_PATH=$$test_root/database.sqlite &&
+      npm test'
+    environment:
+      NODE_ENV: test
+      DATABASE_PATH: /tmp/karte2-test-placeholder/database.sqlite
+      TEST_ROOT: /tmp/karte2-test-placeholder
+      RUNTIME_ROOT: /tmp/karte2-runtime
+    volumes:
+      - ./src:/app/src:ro
+      - ./test:/app/test:ro
+      - ./migrations:/app/migrations:ro
+      - ./config:/app/config:ro
