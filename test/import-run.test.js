@@ -143,4 +143,31 @@ describe('page import persistence', () => {
     ]));
     database.close();
   });
+
+  it('updates imported position fields without overwriting editorial overrides', async () => {
+    const database = makeDatabase();
+    let version = 1;
+    const options = {
+      database,
+      html,
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, `${url}-${version}`),
+      extractDocumentImpl: async ({ textPath }) => ({
+        textPath,
+        pageCount: 1,
+        text: `Pfarrstelle Beispielort\nDekanat: Importdekanat\nDienstsitz: Beispielort\n${version === 1 ? 75 : 50} %\n`,
+      }),
+    };
+    await runPageImport(options);
+    database.prepare(`INSERT INTO position_overrides (position_id, field_name, override_value, editor, reason, updated_at) VALUES (1, 'deanery', 'Redaktionelles Dekanat', 'test', 'geprüft', '2026-10-19T12:00:00Z')`).run();
+    expect(database.prepare('SELECT position_id, field_name FROM position_overrides').all()).toEqual([{ position_id: 1, field_name: 'deanery' }]);
+    version = 2;
+    await runPageImport(options);
+
+    expect(database.prepare('SELECT deanery, employment_percentage FROM positions WHERE id = 1').get())
+      .toEqual({ deanery: 'Redaktionelles Dekanat', employment_percentage: 50 });
+    database.close();
+  });
 });

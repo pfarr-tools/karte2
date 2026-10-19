@@ -13,6 +13,20 @@ function stableSlug(name) {
     .replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+function updateImportedPosition(database, positionId, parsed) {
+  const importedFields = {
+    type: parsed.type,
+    deanery: parsed.deanery,
+    employment_percentage: parsed.employmentPercentage,
+    employment_description: parsed.employmentDescription,
+    description: parsed.description,
+  };
+  for (const [fieldName, value] of Object.entries(importedFields)) {
+    const overridden = database.prepare('SELECT override_value FROM position_overrides WHERE position_id = ? AND field_name = ?').get(positionId, fieldName);
+    database.prepare(`UPDATE positions SET ${fieldName} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(overridden?.override_value ?? value, positionId);
+  }
+}
+
 function persistPublication(database, { candidate, section, documentId, extractedText, observedAt }) {
   const parsed = parseVacancyText({ title: candidate.title, text: extractedText });
   let position = database.prepare('SELECT id FROM positions WHERE normalized_name = ?').get(parsed.normalizedName);
@@ -29,7 +43,7 @@ function persistPublication(database, { candidate, section, documentId, extracte
     );
     position = { id: Number(inserted.lastInsertRowid) };
     if (locationId) database.prepare('INSERT INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(position.id, locationId, 'duty');
-  }
+  } else updateImportedPosition(database, position.id, parsed);
 
   const existingPublication = database.prepare(`
     SELECT id FROM publications WHERE position_id = ? AND document_id = ? AND category = ?
