@@ -19,6 +19,7 @@ afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     fs.rmSync(temporaryDirectories.pop(), { recursive: true, force: true });
   }
+  if (global.gc) global.gc();
 });
 
 describe('HTTP server', () => {

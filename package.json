@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "vitest run --exclude test/server.test.js && vitest run test/server.test.js"
+    "test": "vitest run --exclude test/server.test.js && NODE_OPTIONS=--expose-gc vitest run test/server.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
