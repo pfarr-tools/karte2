@@ -39,10 +39,11 @@ function publicPage() {
     const markers = L.layerGroup().addTo(map);
     const results = document.querySelector('#results');
     const form = document.querySelector('#filters');
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
     function render(items) {
       markers.clearLayers();
-      results.innerHTML = items.length ? items.map((item) => '<article class="card mb-2"><div class="card-body"><h2 class="h5">' + item.name + '</h2><p class="mb-1">' + (item.type || '') + (item.deanery ? ' · ' + item.deanery : '') + '</p><p class="mb-1">Kategorie: ' + item.category + '</p><p class="small text-body-secondary">Quelle: ' + item.source.name + '</p><a href="' + item.documentUrl + '">Originaldokument</a></div></article>').join('') : '<p>Keine Pfarrstellen gefunden.</p>';
-      items.flatMap((item) => item.locations).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => L.marker([location.latitude, location.longitude]).bindPopup(location.name).addTo(markers));
+      results.innerHTML = items.length ? items.map((item) => '<article class="card mb-2"><div class="card-body"><h2 class="h5">' + escapeHtml(item.name) + '</h2><p class="mb-1">' + escapeHtml(item.type || '') + (item.deanery ? ' · ' + escapeHtml(item.deanery) : '') + '</p><p class="mb-1">Kategorie: ' + escapeHtml(item.category) + '</p><p class="small text-body-secondary">Quelle: ' + escapeHtml(item.source.name) + '</p><a href="' + escapeHtml(item.documentUrl) + '">Originaldokument</a></div></article>').join('') : '<p>Keine Pfarrstellen gefunden.</p>';
+      items.flatMap((item) => item.locations).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => L.marker([location.latitude, location.longitude]).bindPopup(escapeHtml(location.name)).addTo(markers));
     }
     async function load() { const params = new URLSearchParams(new FormData(form)); const response = await fetch('/api/publications?' + params); render((await response.json()).items); }
     form.addEventListener('input', load); load();

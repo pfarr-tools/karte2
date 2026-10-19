@@ -115,5 +115,6 @@ describe('HTTP server', () => {
     expect(response.body).toContain('Pfarrstellenkarte');
     expect(response.body).toContain('unoffiziell');
     expect(response.body).toContain('api/publications');
+    expect(response.body).toContain('escapeHtml');
   });
 });
