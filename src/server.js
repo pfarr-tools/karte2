@@ -57,9 +57,11 @@ function publicPage() {
       items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => markerFor(location, location.category).bindPopup(escapeHtml(location.name)).addTo(markers));
     }
     function currentParams() { return new URLSearchParams([...new FormData(form)].filter(([, value]) => value !== '')); }
-    function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); }
-    async function load() { const params = currentParams(); history.replaceState(null, '', params.toString() ? '?' + params : window.location.pathname); const response = await fetch('/api/publications?' + params); render((await response.json()).items); }
-    restoreParams(); form.addEventListener('input', load); load();
+    function stateParams() { const params = currentParams(); const center = map.getCenter(); params.set('mapLat', center.lat.toFixed(5)); params.set('mapLng', center.lng.toFixed(5)); params.set('mapZoom', String(map.getZoom())); return params; }
+    function replaceUrl() { const params = stateParams(); history.replaceState(null, '', '?' + params); }
+    function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); const lat = Number(params.get('mapLat')); const lng = Number(params.get('mapLng')); const zoom = Number(params.get('mapZoom')); if ([lat, lng, zoom].every(Number.isFinite) && zoom >= 0 && zoom <= 20 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) map.setView([lat, lng], zoom); }
+    async function load() { const params = stateParams(); replaceUrl(); const response = await fetch('/api/publications?' + new URLSearchParams([...params].filter(([key]) => !key.startsWith('map')))); render((await response.json()).items); }
+    restoreParams(); map.on('moveend', replaceUrl); form.addEventListener('input', load); load();
   </script>
 </body>
 </html>`;

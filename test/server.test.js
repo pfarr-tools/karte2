@@ -160,6 +160,8 @@ describe('HTTP server', () => {
     expect(response.body).toContain('api/publications');
     expect(response.body).toContain('escapeHtml');
     expect(response.body).toContain('history.replaceState');
+    expect(response.body).toContain('mapLat');
+    expect(response.body).toContain('mapZoom');
     expect(response.body).toContain('leaflet.markercluster');
   });
 

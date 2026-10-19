@@ -47,6 +47,8 @@ Die Filter wirken auf Liste, API und CSV-Export gleichermaßen. Zusätzlich zu
 Kategorie und Freitext stehen Stellentyp, Dekanat, Beschäftigungsumfang ab/bis
 und Bewerbungsfrist ab/bis zur Verfügung. Der Filterzustand wird in der
 Browser-URL als Query-Parameter gespeichert und kann weitergegeben werden.
+Auch Kartenzentrum und Zoom werden als `mapLat`, `mapLng` und `mapZoom`
+gespeichert.
 
 ### 2.3 Positionsdetails
 
