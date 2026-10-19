@@ -1,5 +1,8 @@
 import Fastify from 'fastify';
 import { config } from './config.js';
+import { openDatabase } from './db/connection.js';
+import { migrateDatabase } from './db/migrate.js';
+import { syncSourceDefinitions, sourceDefinitions } from './db/source-registry.js';
 
 export function buildServer() {
   const server = Fastify({ logger: true });
@@ -7,7 +10,14 @@ export function buildServer() {
   return server;
 }
 
-export async function startServer() {
+export function bootstrapDatabase(database = openDatabase(config)) {
+  migrateDatabase(database);
+  syncSourceDefinitions(database, sourceDefinitions);
+  return database;
+}
+
+export async function startServer({ database } = {}) {
+  bootstrapDatabase(database);
   const server = buildServer();
   await server.listen({ host: '0.0.0.0', port: config.port });
   return server;
