@@ -31,4 +31,25 @@ describe('backup creation', () => {
     await expect(restoreBackup({ backupPath: '/tmp/no-backup', databasePath: '/tmp/db', runtimeRoot: '/tmp/runtime' }))
       .rejects.toThrow(/explicit confirmation/);
   });
+
+  it('restores the database and document archive after explicit confirmation', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'karte2-restore-'));
+    roots.push(root);
+    const testRoot = path.join(root, 'test');
+    const runtimeRoot = path.join(root, 'runtime');
+    const dbPath = path.join(testRoot, 'db.sqlite');
+    const db = openDatabase({ filename: dbPath, nodeEnv: 'test', testRoot, runtimeRoot });
+    migrateDatabase(db);
+    fs.mkdirSync(path.join(runtimeRoot, 'documents'), { recursive: true });
+    fs.writeFileSync(path.join(runtimeRoot, 'documents', 'one.pdf'), 'original');
+    const backup = await createBackup({ database: db, databasePath: dbPath, runtimeRoot, backupRoot: path.join(root, 'backups'), timestamp: '2026-10-19T12:00:00Z' });
+    db.close();
+    fs.rmSync(dbPath);
+    fs.writeFileSync(path.join(runtimeRoot, 'documents', 'one.pdf'), 'changed');
+    await restoreBackup({ backupPath: backup.destination, databasePath: dbPath, runtimeRoot, confirm: true });
+    const restored = openDatabase({ filename: dbPath, nodeEnv: 'test', testRoot, runtimeRoot });
+    expect(restored.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'documents'").get()).toEqual({ name: 'documents' });
+    restored.close();
+    expect(fs.readFileSync(path.join(runtimeRoot, 'documents', 'one.pdf'), 'utf8')).toBe('original');
+  });
 });

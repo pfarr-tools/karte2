@@ -28,7 +28,7 @@ export async function restoreBackup({ backupPath, databasePath, runtimeRoot, con
   const temporaryDatabase = `${path.resolve(databasePath)}.${process.pid}.restore.tmp`;
   await fs.copyFile(path.join(source, 'karte.sqlite'), temporaryDatabase);
   await fs.rename(temporaryDatabase, path.resolve(databasePath));
-  await fs.rm(path.join(runtimeRoot, 'documents'), { recursive: true, force: false });
+  await fs.rm(path.join(runtimeRoot, 'documents'), { recursive: true, force: true });
   await fs.cp(path.join(source, 'documents'), path.join(runtimeRoot, 'documents'), { recursive: true });
   return { databasePath: path.resolve(databasePath), runtimeRoot: path.resolve(runtimeRoot) };
 }

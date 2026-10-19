@@ -41,11 +41,11 @@ describe('HTTP server', () => {
       testRoot: path.join(root, 'test'),
       runtimeRoot: path.join(root, 'runtime'),
     });
+    databases.push(database);
     bootstrapDatabase(database);
 
     expect(database.prepare('SELECT COUNT(*) AS count FROM sources').get().count).toBe(1);
     expect(database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'import_runs'").get()).toEqual({ name: 'import_runs' });
-    database.close();
   });
 
   it('serves filtered publications with source and document provenance', async () => {
