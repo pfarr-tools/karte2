@@ -50,6 +50,10 @@ Browser-URL als Query-Parameter gespeichert und kann weitergegeben werden.
 Auch Kartenzentrum und Zoom werden als `mapLat`, `mapLng` und `mapZoom`
 gespeichert.
 
+Die Treffer lassen sich nach Name oder Bewerbungsfrist sortieren. Auf kleinen
+Bildschirmen kann zwischen Karten- und Listenansicht umgeschaltet werden; die
+zugängliche Liste ist auch ohne Kartenbedienung vollständig nutzbar.
+
 ### 2.3 Positionsdetails
 
 Ein Klick auf eine Position führt zu `/position/<ID>`. Dort stehen Name, Typ,

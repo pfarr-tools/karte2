@@ -24,7 +24,7 @@ function publicPage() {
       <p class="alert alert-warning"><strong>Hinweis:</strong> Diese Übersicht ist unoffiziell. Maßgeblich sind die originalen ELKW-Dokumente.</p>
     </header>
     <section class="row g-3" aria-label="Pfarrstellenübersicht">
-      <div class="col-12 col-lg-7 order-lg-2"><div id="map" style="height: 70vh" aria-label="Karte der Pfarrstellen"></div></div>
+      <div class="col-12 col-lg-7 order-lg-2" id="map-panel"><div id="map" style="height: 70vh" aria-label="Karte der Pfarrstellen"></div></div>
       <div class="col-12 col-lg-5 order-lg-1">
         <form id="filters" class="row g-2 mb-3">
           <div class="col-12"><label class="form-label" for="search">Suche</label><input id="search" name="q" class="form-control" type="search" placeholder="Name, Ort oder Beschreibung"></div>
@@ -33,8 +33,13 @@ function publicPage() {
           <div class="col-12 col-md-6"><label class="form-label" for="deanery">Dekanat</label><input id="deanery" name="deanery" class="form-control" type="text"></div>
           <div class="col-6"><label class="form-label" for="employmentMin">Beschäftigung ab (%)</label><input id="employmentMin" name="employmentMin" class="form-control" type="number" min="0" max="100"></div>
           <div class="col-6"><label class="form-label" for="deadlineAfter">Frist ab</label><input id="deadlineAfter" name="deadlineAfter" class="form-control" type="date"></div>
+          <div class="col-12"><label class="form-label" for="sort">Sortierung</label><select id="sort" name="sort" class="form-select"><option value="name">Name</option><option value="deadline">Bewerbungsfrist</option></select></div>
         </form>
-        <div id="results" aria-live="polite">Lade Pfarrstellen …</div>
+        <div class="btn-group mb-2" role="group" aria-label="Ansicht wählen">
+          <button type="button" class="btn btn-outline-primary active" id="mobile-map" aria-pressed="true">Karte</button>
+          <button type="button" class="btn btn-outline-primary" id="mobile-list" aria-pressed="false">Liste</button>
+        </div>
+        <div id="list-panel" aria-live="polite">Lade Pfarrstellen …</div>
       </div>
     </section>
   </main>
@@ -44,8 +49,11 @@ function publicPage() {
     const map = L.map('map').setView([48.6, 9.0], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap-Mitwirkende' }).addTo(map);
     const markers = L.markerClusterGroup({ showCoverageOnHover: false }).addTo(map);
-    const results = document.querySelector('#results');
+    const results = document.querySelector('#list-panel');
     const form = document.querySelector('#filters');
+    const mapPanel = document.querySelector('#map-panel');
+    const listButton = document.querySelector('#mobile-list');
+    const mapButton = document.querySelector('#mobile-map');
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
     const categoryColors = { advertised: '#b02a37', available: '#146c43', upcoming: '#664d03' };
     const markerFor = (location, category) => L.marker([location.latitude, location.longitude], {
@@ -53,15 +61,16 @@ function publicPage() {
     });
     function render(items) {
       markers.clearLayers();
-      results.innerHTML = items.length ? items.map((item) => '<article class="card mb-2"><div class="card-body"><h2 class="h5">' + escapeHtml(item.name) + '</h2><p class="mb-1">' + escapeHtml(item.type || '') + (item.deanery ? ' · ' + escapeHtml(item.deanery) : '') + '</p><p class="mb-1">Kategorie: ' + escapeHtml(item.category) + '</p><p class="small text-body-secondary">Quelle: ' + escapeHtml(item.source.name) + '</p><a href="' + escapeHtml(item.documentUrl) + '">Originaldokument</a></div></article>').join('') : '<p>Keine Pfarrstellen gefunden.</p>';
+      results.innerHTML = items.length ? '<div class="table-responsive"><table class="table table-striped align-middle"><caption class="visually-hidden">Gefundene Pfarrstellen</caption><thead><tr><th scope="col">Name</th><th scope="col">Kategorie</th><th scope="col">Ort/Dekanat</th><th scope="col">Frist</th><th scope="col">Quelle</th></tr></thead><tbody>' + items.map((item) => '<tr><th scope="row"><a href="/position/' + encodeURIComponent(item.positionId || item.id) + '">' + escapeHtml(item.name) + '</a><div class="small text-body-secondary">' + escapeHtml(item.type || '') + '</div></th><td>' + escapeHtml(item.category) + '</td><td>' + escapeHtml(item.locations.map((location) => location.name).join(', ') || item.deanery || '') + '</td><td>' + escapeHtml(item.deadline || 'unbekannt') + '</td><td><a href="' + escapeHtml(item.documentUrl || item.source.url) + '">' + escapeHtml(item.source.name) + '</a></td></tr>').join('') + '</tbody></table></div>' : '<p>Keine Pfarrstellen gefunden.</p>';
       items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => markerFor(location, location.category).bindPopup(escapeHtml(location.name)).addTo(markers));
     }
+    function setView(view) { const list = view === 'list'; mapPanel.classList.toggle('d-none', list); listButton.classList.toggle('active', list); listButton.setAttribute('aria-pressed', String(list)); mapButton.classList.toggle('active', !list); mapButton.setAttribute('aria-pressed', String(!list)); if (!list) setTimeout(() => map.invalidateSize(), 0); }
     function currentParams() { return new URLSearchParams([...new FormData(form)].filter(([, value]) => value !== '')); }
     function stateParams() { const params = currentParams(); const center = map.getCenter(); params.set('mapLat', center.lat.toFixed(5)); params.set('mapLng', center.lng.toFixed(5)); params.set('mapZoom', String(map.getZoom())); return params; }
     function replaceUrl() { const params = stateParams(); history.replaceState(null, '', '?' + params); }
     function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); const lat = Number(params.get('mapLat')); const lng = Number(params.get('mapLng')); const zoom = Number(params.get('mapZoom')); if ([lat, lng, zoom].every(Number.isFinite) && zoom >= 0 && zoom <= 20 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) map.setView([lat, lng], zoom); }
     async function load() { const params = stateParams(); replaceUrl(); const response = await fetch('/api/publications?' + new URLSearchParams([...params].filter(([key]) => !key.startsWith('map')))); render((await response.json()).items); }
-    restoreParams(); map.on('moveend', replaceUrl); form.addEventListener('input', load); load();
+    restoreParams(); map.on('moveend', replaceUrl); listButton.addEventListener('click', () => setView('list')); mapButton.addEventListener('click', () => setView('map')); form.addEventListener('input', load); load();
   </script>
 </body>
 </html>`;
@@ -85,7 +94,7 @@ function publicationItems(database, query) {
   if (query.deadlineBefore) { clauses.push('pub.application_deadline <= ?'); values.push(query.deadlineBefore); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = database.prepare(`
-    SELECT pub.id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage, p.description,
+    SELECT pub.id, p.id AS position_id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage, p.description,
       pub.category, pub.application_deadline, pub.published_at, pub.current_state, pub.extraction_confidence,
       l.name AS location_name, l.address, l.latitude, l.longitude, pl.role,
       s.name AS source_name, s.url AS source_url, d.original_url AS document_url, d.fetched_at
@@ -96,12 +105,12 @@ function publicationItems(database, query) {
     LEFT JOIN position_locations pl ON pl.position_id = p.id
     LEFT JOIN locations l ON l.id = pl.location_id
     ${where}
-    ORDER BY p.normalized_name, pub.category, pub.id
+    ORDER BY ${query.sort === 'deadline' ? 'pub.application_deadline IS NULL, pub.application_deadline, p.normalized_name' : 'p.normalized_name, pub.category'}, pub.id
   `).all(...values);
   const items = new Map();
   for (const row of rows) {
     if (!items.has(row.id)) items.set(row.id, {
-      id: row.id, name: row.name, category: row.category, type: row.type, deanery: row.deanery,
+      id: row.id, positionId: row.position_id, name: row.name, category: row.category, type: row.type, deanery: row.deanery,
       employmentPercentage: row.employment_percentage, deadline: row.application_deadline,
       publishedAt: row.published_at, fetchedAt: row.fetched_at, extractionConfidence: row.extraction_confidence,
       description: row.description, state: row.current_state, locations: [],

@@ -88,6 +88,7 @@ describe('HTTP server', () => {
     expect(response.json()).toEqual({
       items: [{
         id: 1,
+        positionId: 1,
         name: 'Beispielpfarrstelle',
         category: 'advertised',
         type: 'Pfarrstelle',
@@ -150,6 +151,9 @@ describe('HTTP server', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().items.map((item) => item.name)).toEqual(['Passende Pfarrstelle']);
+
+    const sorted = await server.inject({ method: 'GET', url: '/api/publications?sort=deadline' });
+    expect(sorted.json().items.map((item) => item.name)).toEqual(['Andere Stelle', 'Passende Pfarrstelle']);
   });
 
   it('renders a German public map/list shell with an unofficial disclaimer', async () => {
@@ -168,6 +172,9 @@ describe('HTTP server', () => {
     expect(response.body).toContain('mapLat');
     expect(response.body).toContain('mapZoom');
     expect(response.body).toContain('leaflet.markercluster');
+    expect(response.body).toContain('mobile-list');
+    expect(response.body).toContain('<table');
+    expect(response.body).toContain('name="sort"');
   });
 
   it('protects administrative status and issue endpoints with an admin token', async () => {
