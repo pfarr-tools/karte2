@@ -167,10 +167,13 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 
 curl -H "Authorization: Bearer $ADMIN_TOKEN" \
   http://localhost:3000/admin/issues
+
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  http://localhost:3000/admin/imports
 ```
 
 Der Status enthält Positions-, Dokument- und offene Issue-Zahlen sowie den letzten
-Importlauf. Issues enthalten insbesondere ungültige URLs, Downloadfehler,
+Importlauf. `/admin/imports` liefert die letzten 100 Importläufe. Issues enthalten insbesondere ungültige URLs, Downloadfehler,
 Extraktionsfehler und verdächtig leere Quellenläufe.
 
 ### 5.3 Manueller Import

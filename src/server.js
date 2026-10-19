@@ -181,6 +181,9 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
       lastImport: database.prepare('SELECT id, status, completed_at, counts_json FROM import_runs ORDER BY id DESC LIMIT 1').get() ?? null,
     };
   });
+  server.get('/admin/imports', async () => ({ imports: database
+    ? database.prepare('SELECT id, source_id, started_at, completed_at, status, counts_json, error_summary FROM import_runs ORDER BY id DESC LIMIT 100').all()
+    : [] }));
   server.get('/admin/issues', async () => ({ issues: database
     ? database.prepare('SELECT id, import_run_id, document_id, severity, code, message, context_json FROM import_issues WHERE resolved_at IS NULL ORDER BY id DESC').all()
     : [] }));

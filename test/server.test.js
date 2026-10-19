@@ -179,6 +179,9 @@ describe('HTTP server', () => {
     const authorized = await server.inject({ method: 'GET', url: '/admin/status', headers: { authorization: 'Bearer secret' } });
     expect(authorized.statusCode).toBe(200);
     expect(authorized.json()).toEqual(expect.objectContaining({ positions: 0, documents: 0, unresolvedIssues: 0 }));
+    const imports = await server.inject({ method: 'GET', url: '/admin/imports', headers: { authorization: 'Bearer secret' } });
+    expect(imports.statusCode).toBe(200);
+    expect(imports.json()).toEqual({ imports: [] });
     const manualImport = await server.inject({ method: 'POST', url: '/admin/import', headers: { authorization: 'Bearer secret' } });
     expect(manualImport.statusCode).toBe(200);
     expect(manualImport.json()).toEqual({ status: 'completed' });
