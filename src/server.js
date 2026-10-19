@@ -161,6 +161,19 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
       extractDocumentImpl: extractPdfText,
     }));
   });
+  server.post('/admin/locations/:id', async (request, reply) => {
+    const latitude = Number(request.body?.latitude);
+    const longitude = Number(request.body?.longitude);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      return reply.code(400).send({ error: 'Invalid coordinates' });
+    }
+    const result = database?.prepare(`
+      UPDATE locations SET latitude = ?, longitude = ?, geocoding_provider = 'manual', geocoding_confidence = 'verified', verified_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(latitude, longitude, Number(request.params.id));
+    if (!result?.changes) return reply.code(404).send({ error: 'Location not found' });
+    return { status: 'updated', locationId: Number(request.params.id) };
+  });
   return server;
 }
 

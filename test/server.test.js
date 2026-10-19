@@ -76,7 +76,7 @@ describe('HTTP server', () => {
       VALUES (1, 'elkw-pfarrstellen', 1, 'advertised', '2026-11-05', '2026-10-19T12:00:00Z', '2026-10-19T12:00:00Z', 'current')
     `).run();
 
-    const server = buildServer({ database });
+    const server = buildServer({ database, adminToken: 'secret' });
     servers.push(server);
     const response = await server.inject({ method: 'GET', url: '/api/publications?category=advertised&q=Beispielort' });
 
@@ -104,6 +104,10 @@ describe('HTTP server', () => {
     const detail = await server.inject({ method: 'GET', url: '/api/positions/1' });
     expect(detail.statusCode).toBe(200);
     expect(detail.json().publications[0]).toMatchObject({ documentUrl: 'https://www.elk-wue.de/beispiel.pdf' });
+    const locationUpdate = await server.inject({ method: 'POST', url: '/admin/locations/1', headers: { authorization: 'Bearer secret', 'content-type': 'application/json' }, payload: { latitude: 48.51, longitude: 9.11 } });
+    expect(locationUpdate.statusCode).toBe(200);
+    expect(database.prepare('SELECT latitude, longitude, geocoding_provider, geocoding_confidence FROM locations WHERE id = 1').get())
+      .toEqual({ latitude: 48.51, longitude: 9.11, geocoding_provider: 'manual', geocoding_confidence: 'verified' });
     database.close();
   });
 
