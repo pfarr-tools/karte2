@@ -56,10 +56,6 @@ export function parseElkwListingPage(html, { sourceId, pageUrl, observedAt }) {
       const headingCategory = categoryForHeading(text);
       if (headingCategory) {
         category = headingCategory;
-        if (headingCategory === 'advertised') {
-          currentSection = null;
-          return;
-        }
         const round = null;
         currentSection = {
           key: sectionKey(category, round),
@@ -84,6 +80,8 @@ export function parseElkwListingPage(html, { sourceId, pageUrl, observedAt }) {
       if (category === 'advertised') {
         const parsedRound = roundForHeading(text);
         if (parsedRound?.round) {
+          const defaultKey = sectionKey(category, null);
+          if (!documents.some((document) => document.sectionKey === defaultKey)) sections.delete(defaultKey);
           currentSection = {
             key: sectionKey(category, parsedRound.round),
             sourceId,

@@ -41,4 +41,19 @@ describe('ELKW listing page parser', () => {
       expect.objectContaining({ code: 'unrecognized-pdf-context', url: 'https://www.elk-wue.de/downloads/contact.pdf' }),
     ]));
   });
+
+  it('keeps direct PDFs under advertised listings without a round heading', () => {
+    const result = parseElkwListingPage(`
+      <h2>Aktuelle Ausschreibungen</h2>
+      <a href="/downloads/direkt.pdf">Direkte Stelle (PDF)</a>
+    `, options);
+
+    expect(result.sections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'advertised:default', category: 'advertised', round: null }),
+    ]));
+    expect(result.documents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sectionKey: 'advertised:default', originalUrl: 'https://www.elk-wue.de/downloads/direkt.pdf' }),
+    ]));
+    expect(result.issues).toEqual([]);
+  });
 });
