@@ -1,6 +1,6 @@
 # karte2 – Benutzer- und Administrationshandbuch
 
-Version 1.0 · 19. Oktober 2026
+Version 1.0 · 20. Oktober 2026
 
 ## 1. Zweck und wichtige Hinweise
 
@@ -24,13 +24,14 @@ die aktuelle ELKW-Seite und die dort verlinkten offiziellen PDFs.
 Nach dem Aufruf der Webadresse zeigt die Startseite:
 
 - eine Leaflet-Karte für Baden-Württemberg,
-- eine zugängliche Ergebnisliste neben der Karte,
-- Filter für Freitext und Veröffentlichungskategorie,
+- eine zugängliche Ergebnisliste als alternative Ansicht,
+- ein platzsparendes Filterfenster, das erst über „Filter öffnen“ eingeblendet wird,
 - geclusterte, nach Kategorie eingefärbte Marker für bekannte Standorte,
 - die Quellenbezeichnung und den Link zum originalen PDF.
 
-Die Liste ist auch ohne Kartennutzung verwendbar. Auf kleinen Bildschirmen ordnen
-sich Karte und Liste untereinander an.
+Die Karte nutzt den gesamten verfügbaren Bereich unterhalb der Kopfleiste. Die
+Liste ersetzt die Karte vollständig, wenn „Liste“ gewählt wird. Mit „Karte“ kann
+zurückgewechselt werden.
 
 ### 2.2 Suche und Filter
 
@@ -53,16 +54,19 @@ gespeichert.
 Wenn die Quelle ein Bewerbungsverfahren nennt, kann zusätzlich danach gesucht
 werden, etwa mit `procedure=Wahl`.
 
-Die Treffer lassen sich nach Name oder Bewerbungsfrist sortieren. Auf kleinen
-Bildschirmen kann zwischen Karten- und Listenansicht umgeschaltet werden; die
-zugängliche Liste ist auch ohne Kartenbedienung vollständig nutzbar.
+Die Treffer lassen sich nach Name oder Bewerbungsfrist sortieren. Alle
+Kategorien werden in der Oberfläche auf Deutsch angezeigt: „Aktuelle
+Ausschreibung“, „Verfügbare Pfarrstelle“ und „Vormerkliste / künftige
+Besetzung“. Die zugängliche Liste ist auch ohne Kartenbedienung vollständig
+nutzbar.
 
 ### 2.3 Positionsdetails
 
-Ein Klick auf eine Position führt zu `/position/<ID>`. Dort stehen Name, Typ,
-Dekanat, Standorte, Kategorien, Quellen und die originalen Dokumente. Historische
-Veröffentlichungen bleiben erhalten und werden nicht stillschweigend durch neue
-Importe ersetzt.
+Ein Klick auf eine Position führt zu `/position/<ID>`. Die Detailseite zeigt
+Name, Typ, Dekanat, Beschreibung, Standorte sowie Veröffentlichungen in einer
+strukturierten Darstellung mit Quellen, Abrufdatum und Originaldokumenten.
+Historische Veröffentlichungen bleiben erhalten und werden nicht stillschweigend
+durch neue Importe ersetzt.
 
 ### 2.4 CSV-Export
 

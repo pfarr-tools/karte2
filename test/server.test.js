@@ -124,6 +124,8 @@ describe('HTTP server', () => {
     expect(page.body).toContain('Beispielpfarrstelle');
     expect(page.body).toContain('Originaldokument');
     expect(page.body).toContain('Abgerufen: 2026-10-19T12:00:00Z');
+    expect(page.body).toContain('detail-grid');
+    expect(page.body).toContain('Aktuelle Ausschreibung');
   });
 
   it('filters by position type, deanery, employment percentage and deadline', async () => {
@@ -177,6 +179,13 @@ describe('HTTP server', () => {
     expect(response.body).toContain('mapZoom');
     expect(response.body).toContain('leaflet.markercluster');
     expect(response.body).toContain('mobile-list');
+    expect(response.body).toContain('Filter öffnen');
+    expect(response.body).toContain('offcanvas');
+    expect(response.body).toContain('height: calc(100vh - var(--topbar-height))');
+    expect(response.body).toContain('Number.isFinite(Number(location.latitude))');
+    expect(response.body).toContain('id="list-panel" class="d-none');
+    expect(response.body).toContain('Aktuelle Ausschreibung');
+    expect(response.body).toContain('Verfügbare Pfarrstelle');
     expect(response.body).toContain('<table');
     expect(response.body).toContain('name="sort"');
     expect(response.body).toContain('name="procedure"');

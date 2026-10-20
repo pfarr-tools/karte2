@@ -4,6 +4,16 @@ import { openDatabase } from './db/connection.js';
 import { migrateDatabase } from './db/migrate.js';
 import { syncSourceDefinitions, sourceDefinitions } from './db/source-registry.js';
 
+const categoryLabels = Object.freeze({
+  advertised: 'Aktuelle Ausschreibung',
+  available: 'Verfügbare Pfarrstelle',
+  upcoming: 'Vormerkliste / künftige Besetzung',
+});
+
+function categoryLabel(category) {
+  return categoryLabels[category] ?? 'Unbekannte Kategorie';
+}
+
 function publicPage() {
   return `<!doctype html>
 <html lang="de">
@@ -15,61 +25,93 @@ function publicPage() {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <style>
+    :root { --topbar-height: 56px; }
+    html, body { height: 100%; margin: 0; }
+    body { overflow: hidden; }
+    #topbar { min-height: var(--topbar-height); }
+    #app-shell, #map-panel, #map { height: calc(100vh - var(--topbar-height)); }
+    #map-panel { width: 100%; }
+    #list-panel { height: calc(100vh - var(--topbar-height)); overflow: auto; }
+    .leaflet-popup-content { margin: 12px 14px; }
+  </style>
 </head>
-<body>
-  <main class="container-fluid py-3">
-    <header class="mb-3">
-      <h1>Pfarrstellenkarte</h1>
-      <p class="text-body-secondary">Pfarrstellen der Evangelischen Landeskirche in Württemberg</p>
-      <p class="alert alert-warning"><strong>Hinweis:</strong> Diese Übersicht ist unoffiziell. Maßgeblich sind die originalen ELKW-Dokumente.</p>
-    </header>
-    <section class="row g-3" aria-label="Pfarrstellenübersicht">
-      <div class="col-12 col-lg-7 order-lg-2" id="map-panel"><div id="map" style="height: 70vh" aria-label="Karte der Pfarrstellen"></div></div>
-      <div class="col-12 col-lg-5 order-lg-1">
-        <form id="filters" class="row g-2 mb-3">
-          <div class="col-12"><label class="form-label" for="search">Suche</label><input id="search" name="q" class="form-control" type="search" placeholder="Name, Ort oder Beschreibung"></div>
-          <div class="col-12"><label class="form-label" for="category">Kategorie</label><select id="category" name="category" class="form-select"><option value="">Alle</option><option value="advertised">Aktuelle Ausschreibungen</option><option value="available">Verfügbare Pfarrstellen</option><option value="upcoming">Liste zu besetzender Pfarrstellen</option></select></div>
-          <div class="col-12 col-md-6"><label class="form-label" for="type">Stellentyp</label><input id="type" name="type" class="form-control" type="text" placeholder="z. B. Pfarrstelle"></div>
-          <div class="col-12 col-md-6"><label class="form-label" for="deanery">Dekanat</label><input id="deanery" name="deanery" class="form-control" type="text"></div>
-          <div class="col-6"><label class="form-label" for="employmentMin">Beschäftigung ab (%)</label><input id="employmentMin" name="employmentMin" class="form-control" type="number" min="0" max="100"></div>
-          <div class="col-6"><label class="form-label" for="deadlineAfter">Frist ab</label><input id="deadlineAfter" name="deadlineAfter" class="form-control" type="date"></div>
-          <div class="col-12"><label class="form-label" for="sort">Sortierung</label><select id="sort" name="sort" class="form-select"><option value="name">Name</option><option value="deadline">Bewerbungsfrist</option></select></div>
-          <div class="col-12"><label class="form-label" for="procedure">Bewerbungsverfahren</label><input id="procedure" name="procedure" class="form-control" type="search" placeholder="z. B. Wahl"></div>
-        </form>
-        <div class="btn-group mb-2" role="group" aria-label="Ansicht wählen">
-          <button type="button" class="btn btn-outline-primary active" id="mobile-map" aria-pressed="true">Karte</button>
-          <button type="button" class="btn btn-outline-primary" id="mobile-list" aria-pressed="false">Liste</button>
+<body class="bg-body-tertiary">
+  <header id="topbar" class="navbar navbar-dark bg-dark shadow-sm">
+    <div class="container-fluid gap-3">
+      <a class="navbar-brand fw-semibold" href="/">Pfarrstellenkarte</a>
+      <span class="navbar-text d-none d-md-inline">Evangelische Landeskirche in Württemberg</span>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="offcanvas" data-bs-target="#filter-panel" aria-controls="filter-panel">Filter öffnen</button>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Ansicht wählen">
+          <button type="button" class="btn btn-light active" id="mobile-map" aria-pressed="true">Karte</button>
+          <button type="button" class="btn btn-outline-light" id="mobile-list" aria-pressed="false">Liste</button>
         </div>
-        <div id="list-panel" aria-live="polite">Lade Pfarrstellen …</div>
       </div>
-    </section>
+    </div>
+  </header>
+  <main id="app-shell" aria-label="Pfarrstellenübersicht">
+    <section id="map-panel" aria-label="Karte der Pfarrstellen"><div id="map" aria-label="Karte der Pfarrstellen"></div></section>
+    <section id="list-panel" class="d-none container-fluid py-3" aria-live="polite" aria-label="Liste der Pfarrstellen">Lade Pfarrstellen …</section>
   </main>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="filter-panel" aria-labelledby="filter-title">
+    <div class="offcanvas-header">
+      <h2 class="offcanvas-title h5" id="filter-title">Pfarrstellen filtern</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Schließen"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="filters" class="row g-3">
+        <div class="col-12"><label class="form-label" for="search">Suche</label><input id="search" name="q" class="form-control" type="search" placeholder="Name, Ort oder Beschreibung"></div>
+        <div class="col-12"><label class="form-label" for="category">Kategorie</label><select id="category" name="category" class="form-select"><option value="">Alle Kategorien</option><option value="advertised">Aktuelle Ausschreibungen</option><option value="available">Verfügbare Pfarrstellen</option><option value="upcoming">Vormerkliste / künftige Besetzung</option></select></div>
+        <div class="col-12"><label class="form-label" for="type">Stellentyp</label><input id="type" name="type" class="form-control" type="text" placeholder="z. B. Pfarrstelle"></div>
+        <div class="col-12"><label class="form-label" for="deanery">Dekanat</label><input id="deanery" name="deanery" class="form-control" type="text"></div>
+        <div class="col-12"><label class="form-label" for="employmentMin">Beschäftigungsumfang ab (%)</label><input id="employmentMin" name="employmentMin" class="form-control" type="number" min="0" max="100"></div>
+        <div class="col-12"><label class="form-label" for="deadlineAfter">Bewerbungsfrist ab</label><input id="deadlineAfter" name="deadlineAfter" class="form-control" type="date"></div>
+        <div class="col-12"><label class="form-label" for="sort">Sortieren nach</label><select id="sort" name="sort" class="form-select"><option value="name">Name</option><option value="deadline">Bewerbungsfrist</option></select></div>
+        <div class="col-12"><label class="form-label" for="procedure">Bewerbungsverfahren</label><input id="procedure" name="procedure" class="form-control" type="search" placeholder="z. B. Wahl"></div>
+      </form>
+    </div>
+  </div>
+  <p class="position-fixed bottom-0 start-0 m-2 small text-bg-warning rounded px-2 py-1 shadow-sm"><strong>Hinweis:</strong> Diese Übersicht ist unoffiziell; maßgeblich sind die originalen ELKW-Dokumente.</p>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const categoryLabels = { advertised: 'Aktuelle Ausschreibung', available: 'Verfügbare Pfarrstelle', upcoming: 'Vormerkliste / künftige Besetzung' };
     const map = L.map('map').setView([48.6, 9.0], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap-Mitwirkende' }).addTo(map);
     const markers = L.markerClusterGroup({ showCoverageOnHover: false }).addTo(map);
     const results = document.querySelector('#list-panel');
     const form = document.querySelector('#filters');
     const mapPanel = document.querySelector('#map-panel');
+    const listPanel = document.querySelector('#list-panel');
     const listButton = document.querySelector('#mobile-list');
     const mapButton = document.querySelector('#mobile-map');
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
     const categoryColors = { advertised: '#b02a37', available: '#146c43', upcoming: '#664d03' };
+    let hasExplicitMapState = false;
     const markerFor = (location, category) => L.marker([location.latitude, location.longitude], {
       icon: L.divIcon({ className: 'karte-marker', html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:' + (categoryColors[category] || '#0d6efd') + ';border:2px solid white;box-shadow:0 0 0 1px #333"></span>', iconSize: [14, 14], iconAnchor: [7, 7] }),
     });
     function render(items) {
       markers.clearLayers();
-      results.innerHTML = items.length ? '<div class="table-responsive"><table class="table table-striped align-middle"><caption class="visually-hidden">Gefundene Pfarrstellen</caption><thead><tr><th scope="col">Name</th><th scope="col">Kategorie</th><th scope="col">Ort/Dekanat</th><th scope="col">Frist</th><th scope="col">Quelle</th></tr></thead><tbody>' + items.map((item) => '<tr><th scope="row"><a href="/position/' + encodeURIComponent(item.positionId || item.id) + '">' + escapeHtml(item.name) + '</a><div class="small text-body-secondary">' + escapeHtml(item.type || '') + '</div></th><td>' + escapeHtml(item.category) + '</td><td>' + escapeHtml(item.locations.map((location) => location.name).join(', ') || item.deanery || '') + '</td><td>' + escapeHtml(item.deadline || 'unbekannt') + '</td><td><a href="' + escapeHtml(item.documentUrl || item.source.url) + '">' + escapeHtml(item.source.name) + '</a></td></tr>').join('') + '</tbody></table></div>' : '<p>Keine Pfarrstellen gefunden.</p>';
-      items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => location.latitude !== null && location.longitude !== null).forEach((location) => markerFor(location, location.category).bindPopup(escapeHtml(location.name)).addTo(markers));
+      results.innerHTML = items.length ? '<div class="table-responsive"><table class="table table-striped align-middle"><caption class="visually-hidden">Gefundene Pfarrstellen</caption><thead><tr><th scope="col">Name</th><th scope="col">Kategorie</th><th scope="col">Ort/Dekanat</th><th scope="col">Frist</th><th scope="col">Quelle</th></tr></thead><tbody>' + items.map((item) => '<tr><th scope="row"><a href="/position/' + encodeURIComponent(item.positionId || item.id) + '">' + escapeHtml(item.name) + '</a><div class="small text-body-secondary">' + escapeHtml(item.type || '') + '</div></th><td><span class="badge text-bg-secondary">' + escapeHtml(categoryLabels[item.category] || 'Unbekannte Kategorie') + '</span></td><td>' + escapeHtml(item.locations.map((location) => location.name).join(', ') || item.deanery || 'Kein Ort angegeben') + '</td><td>' + escapeHtml(item.deadline || 'Keine Frist angegeben') + '</td><td><a href="' + escapeHtml(item.documentUrl || item.source.url) + '">' + escapeHtml(item.source.name) + '</a></td></tr>').join('') + '</tbody></table></div>' : '<p class="alert alert-info">Keine Pfarrstellen gefunden.</p>';
+      const located = items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)));
+      const bounds = [];
+      located.forEach((location) => {
+        const point = [Number(location.latitude), Number(location.longitude)];
+        bounds.push(point);
+        markerFor({ ...location, latitude: point[0], longitude: point[1] }, location.category)
+          .bindPopup('<strong>' + escapeHtml(location.name) + '</strong><br>' + escapeHtml(categoryLabels[location.category] || 'Unbekannte Kategorie'))
+          .addTo(markers);
+      });
+      if (bounds.length && !hasExplicitMapState) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
     }
-    function setView(view) { const list = view === 'list'; mapPanel.classList.toggle('d-none', list); listButton.classList.toggle('active', list); listButton.setAttribute('aria-pressed', String(list)); mapButton.classList.toggle('active', !list); mapButton.setAttribute('aria-pressed', String(!list)); if (!list) setTimeout(() => map.invalidateSize(), 0); }
+    function setView(view) { const list = view === 'list'; mapPanel.classList.toggle('d-none', list); listPanel.classList.toggle('d-none', !list); listButton.classList.toggle('active', list); listButton.classList.toggle('btn-light', list); listButton.classList.toggle('btn-outline-light', !list); listButton.setAttribute('aria-pressed', String(list)); mapButton.classList.toggle('active', !list); mapButton.classList.toggle('btn-light', !list); mapButton.classList.toggle('btn-outline-light', list); mapButton.setAttribute('aria-pressed', String(!list)); if (!list) setTimeout(() => map.invalidateSize(), 0); }
     function currentParams() { return new URLSearchParams([...new FormData(form)].filter(([, value]) => value !== '')); }
     function stateParams() { const params = currentParams(); const center = map.getCenter(); params.set('mapLat', center.lat.toFixed(5)); params.set('mapLng', center.lng.toFixed(5)); params.set('mapZoom', String(map.getZoom())); return params; }
     function replaceUrl() { const params = stateParams(); history.replaceState(null, '', '?' + params); }
-    function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); const lat = Number(params.get('mapLat')); const lng = Number(params.get('mapLng')); const zoom = Number(params.get('mapZoom')); if ([lat, lng, zoom].every(Number.isFinite) && zoom >= 0 && zoom <= 20 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) map.setView([lat, lng], zoom); }
+    function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); const lat = Number(params.get('mapLat')); const lng = Number(params.get('mapLng')); const zoom = Number(params.get('mapZoom')); hasExplicitMapState = [lat, lng, zoom].every(Number.isFinite) && zoom >= 0 && zoom <= 20 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180; if (hasExplicitMapState) map.setView([lat, lng], zoom); }
     async function load() { const params = stateParams(); replaceUrl(); const response = await fetch('/api/publications?' + new URLSearchParams([...params].filter(([key]) => !key.startsWith('map')))); render((await response.json()).items); }
     restoreParams(); map.on('moveend', replaceUrl); listButton.addEventListener('click', () => setView('list')); mapButton.addEventListener('click', () => setView('map')); form.addEventListener('input', load); load();
   </script>
@@ -148,8 +190,29 @@ function escapeHtml(value) {
 }
 
 function positionDetailPage(item) {
-  const publications = item.publications.map((publication) => `<li><strong>${escapeHtml(publication.category)}</strong>${publication.deadline ? ` · Frist: ${escapeHtml(publication.deadline)}` : ''} · <a href="${escapeHtml(publication.documentUrl)}">Originaldokument</a> (Quelle: ${escapeHtml(publication.source.name)})${publication.fetchedAt ? ` · Abgerufen: ${escapeHtml(publication.fetchedAt)}` : ''}</li>`).join('');
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(item.position.name)} – Pfarrstellenkarte</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head><body><main class="container py-4"><a href="/">← Zur Übersicht</a><h1 class="mt-3">${escapeHtml(item.position.name)}</h1><p>${escapeHtml(item.position.type)}${item.position.deanery ? ` · ${escapeHtml(item.position.deanery)}` : ''}</p>${item.position.description ? `<p>${escapeHtml(item.position.description)}</p>` : ''}<h2 class="h4">Standorte</h2><ul>${item.position.locations.map((location) => `<li>${escapeHtml(location.name)}${location.address ? `, ${escapeHtml(location.address)}` : ''}</li>`).join('')}</ul><h2 class="h4">Veröffentlichungen und Quellen</h2><ul>${publications}</ul><p class="alert alert-warning">Unverbindliche Übersicht. Maßgeblich sind die originalen ELKW-Dokumente.</p></main></body></html>`;
+  const locations = item.position.locations.length
+    ? item.position.locations.map((location) => `<li class="list-group-item"><strong>${escapeHtml(location.name)}</strong>${location.address ? `<br><span class="text-body-secondary">${escapeHtml(location.address)}</span>` : ''}</li>`).join('')
+    : '<li class="list-group-item text-body-secondary">Kein Standort angegeben</li>';
+  const publications = item.publications.map((publication) => `<article class="card shadow-sm h-100"><div class="card-body"><span class="badge text-bg-secondary mb-2">${escapeHtml(categoryLabel(publication.category))}</span><h3 class="h6 card-title">${escapeHtml(publication.source.name)}</h3><dl class="row small mb-3"><dt class="col-sm-5">Bewerbungsfrist</dt><dd class="col-sm-7">${escapeHtml(publication.deadline || 'Keine Frist angegeben')}</dd><dt class="col-sm-5">Abrufdatum</dt><dd class="col-sm-7"><span>Abgerufen: ${escapeHtml(publication.fetchedAt || 'Nicht angegeben')}</span></dd></dl><a class="btn btn-outline-primary btn-sm" href="${escapeHtml(publication.documentUrl || publication.source.url)}" rel="noopener">Originaldokument öffnen</a><a class="btn btn-link btn-sm" href="${escapeHtml(publication.source.url)}" rel="noopener">Quellseite</a></div></article>`).join('');
+  return `<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(item.position.name)} – Pfarrstellenkarte</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><style>.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:1rem}.detail-value{font-size:1.05rem;font-weight:600}</style></head>
+<body class="bg-body-tertiary">
+  <header class="navbar navbar-dark bg-dark shadow-sm"><div class="container"><a class="navbar-brand fw-semibold" href="/">Pfarrstellenkarte</a></div></header>
+  <main class="container py-4 py-lg-5">
+    <a class="btn btn-link px-0 mb-3" href="/">← Zur Übersicht</a>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4"><div class="d-flex flex-wrap gap-2 mb-3"><span class="badge text-bg-primary">${escapeHtml(item.position.type || 'Pfarrstelle')}</span>${item.position.deanery ? `<span class="badge text-bg-light border">${escapeHtml(item.position.deanery)}</span>` : ''}</div><h1 class="display-6 mb-0">${escapeHtml(item.position.name)}</h1></div></section>
+    <div class="detail-grid mb-4">
+      <section class="card shadow-sm"><div class="card-body"><h2 class="h5">Stellentyp</h2><div class="detail-value">${escapeHtml(item.position.type || 'Nicht angegeben')}</div></div></section>
+      <section class="card shadow-sm"><div class="card-body"><h2 class="h5">Dekanat</h2><div class="detail-value">${escapeHtml(item.position.deanery || 'Nicht angegeben')}</div></div></section>
+    </div>
+    ${item.position.description ? `<section class="card shadow-sm mb-4"><div class="card-body"><h2 class="h4">Beschreibung</h2><p class="mb-0 text-body-secondary">${escapeHtml(item.position.description)}</p></div></section>` : ''}
+    <section class="card shadow-sm mb-4"><div class="card-body"><h2 class="h4">Standorte</h2><ul class="list-group list-group-flush">${locations}</ul></div></section>
+    <section class="mb-4"><h2 class="h4 mb-3">Veröffentlichungen und Quellen</h2><div class="row g-3">${publications}</div></section>
+    <p class="alert alert-warning"><strong>Hinweis:</strong> Diese Übersicht ist unoffiziell. Maßgeblich sind die originalen ELKW-Dokumente.</p>
+  </main>
+</body>
+</html>`;
 }
 
 export function buildServer({ database = null, adminToken = config.adminToken, importRunner = null } = {}) {
