@@ -19,6 +19,7 @@ Commands:
   import   Import the official ELKW listing page
            --dry-run, --force and --file PATH are supported
   geocode  Geocode unresolved locations
+           --review resolves ambiguous locations interactively
   scheduler Start the optional daily import scheduler
   backup create  Create a database and document backup
   backup restore --yes  Restore a confirmed backup

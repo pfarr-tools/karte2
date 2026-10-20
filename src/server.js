@@ -88,6 +88,7 @@ function publicPage() {
     const categoryLabels = { advertised: 'Aktuelle Ausschreibung', available: 'Verfügbare Pfarrstelle', upcoming: 'Vormerkliste / künftige Besetzung' };
     const map = L.map('map').setView([48.6, 9.0], 8);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap-Mitwirkende' }).addTo(map);
+    map.fitBounds([[47.4, 7.5], [49.8, 10.8]], { padding: [20, 20], maxZoom: 8 });
     const markers = L.markerClusterGroup({ showCoverageOnHover: false }).addTo(map);
     const results = document.querySelector('#list-panel');
     const form = document.querySelector('#filters');

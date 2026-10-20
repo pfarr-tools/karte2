@@ -42,6 +42,26 @@ export function buildGeocoderQueries(location, { replacements = new Map() } = {}
   return queries;
 }
 
+export async function fetchGeocodeCandidates({ query, providerUrl, fetchImpl = fetch }) {
+  const url = new URL(providerUrl);
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('limit', '5');
+  url.searchParams.set('q', query);
+  const response = await fetchImpl(url, { headers: { accept: 'application/json', 'user-agent': 'karte2/0.1' } });
+  if (!response.ok) return [];
+  const candidates = await response.json();
+  return Array.isArray(candidates) ? candidates : [];
+}
+
+export async function findGeocodeCandidates({ location, providerUrl, replacements = new Map(), fetchImpl = fetch }) {
+  if (!providerUrl) throw new Error('A geocoder URL is required');
+  for (const query of buildGeocoderQueries(location, { replacements })) {
+    const candidates = await fetchGeocodeCandidates({ query, providerUrl, fetchImpl });
+    if (candidates.length) return { query, candidates };
+  }
+  return { query: null, candidates: [] };
+}
+
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

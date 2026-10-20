@@ -2,6 +2,21 @@ function clean(value) {
   return value?.replace(/\s+/g, ' ').trim() || null;
 }
 
+const germanTitleLowercaseWords = new Set(['am', 'an', 'auf', 'aus', 'bei', 'das', 'dem', 'den', 'der', 'des', 'die', 'durch', 'für', 'im', 'in', 'mit', 'nach', 'oder', 'und', 'von', 'vor', 'zu', 'zum', 'zur']);
+
+export function formatImportedTitle(value) {
+  const title = clean(value);
+  if (!title || title !== title.toLocaleLowerCase('de')) return title;
+  return title.split(' ').map((word, index) => {
+    const parts = word.split('-');
+    return parts.map((part) => {
+      const lower = part.toLocaleLowerCase('de');
+      if (index > 0 && germanTitleLowercaseWords.has(lower)) return lower;
+      return lower ? lower[0].toLocaleUpperCase('de') + lower.slice(1) : lower;
+    }).join('-');
+  }).join(' ');
+}
+
 function normalizeName(value) {
   return clean(value)?.toLocaleLowerCase('de').normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -19,6 +34,16 @@ function firstMatch(text, patterns) {
   return null;
 }
 
+function titleFromDocument(lines) {
+  const heading = lines.find((line) => /\bPfarrstelle\b/i.test(line) && !/^(?:eine|zweite|erste|weitere)\s+stelle$/i.test(line));
+  if (heading && !/^Pfarrstelle$/i.test(heading)) return heading;
+  const standaloneIndex = lines.findIndex((line) => /^Pfarrstelle$/i.test(line));
+  if (standaloneIndex >= 0 && lines[standaloneIndex + 1] && !/^(?:Dekanat|Kirchenbezirk|Dienstsitz|Dienstort|Ort)\b/i.test(lines[standaloneIndex + 1])) {
+    return `Pfarrstelle ${lines[standaloneIndex + 1]}`;
+  }
+  return lines.find((line) => /^(?:Sonderpfarrstelle|Transformationspfarrstelle|Dienstauftrag)\b/i.test(line)) ?? null;
+}
+
 /**
  * Parse only explicit, stable labels from extracted vacancy text.
  * Missing values remain null; this parser deliberately does not infer locations.
@@ -26,9 +51,10 @@ function firstMatch(text, patterns) {
  */
 export function parseVacancyText({ title, text }) {
   const lines = text.split(/\r?\n/).map(clean).filter(Boolean);
-  const suppliedTitle = clean(title);
+  const suppliedTitle = formatImportedTitle(title);
+  const documentTitle = formatImportedTitle(titleFromDocument(lines));
   const genericTitle = suppliedTitle && /^(?:eine|zweite|erste|weitere)\s+stelle$/i.test(suppliedTitle);
-  const name = (!genericTitle && suppliedTitle) || lines[0] || 'Unbenannte Pfarrstelle';
+  const name = documentTitle || (!genericTitle && suppliedTitle) || lines[0] || 'Unbenannte Pfarrstelle';
   const type = /\bpfarrstelle\b/i.test(name) || /\bpfarrstelle\b/i.test(text) ? 'Pfarrstelle' : null;
   const deanery = firstMatch(text, [
     /(?:Dekan(?:at|ats)|Kirchenbezirk)\s*:\s*([^\n]+)/i,

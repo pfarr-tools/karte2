@@ -17,6 +17,7 @@ describe('CLI arguments', () => {
     expect(parseCliArgs(['migrate'])).toEqual({ command: 'migrate', dryRun: false, force: false, file: null });
     expect(parseCliArgs(['status'])).toEqual({ command: 'status', dryRun: false, force: false, file: null });
     expect(parseCliArgs(['geocode', '--dry-run'])).toEqual({ command: 'geocode', dryRun: true, force: false, file: null });
+    expect(parseCliArgs(['geocode', '--review'])).toEqual({ command: 'geocode', dryRun: false, force: false, file: null, review: true });
     expect(parseCliArgs(['backup', 'create'])).toEqual({ command: 'backup', dryRun: false, force: false, file: null });
     expect(parseCliArgs(['backup', 'restore', '/tmp/backup', '--yes'])).toEqual({ command: 'backup', dryRun: false, force: false, file: null });
   });

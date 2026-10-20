@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { parseVacancyText } from '../src/import/vacancy-text-parser.js';
 
 describe('vacancy text parser', () => {
+  it('restores readable German capitalization for all-lowercase imported titles', () => {
+    expect(parseVacancyText({
+      title: 'transformationspfarrstelle im kirchenbezirk weinsberg-neuenstadt',
+      text: '',
+    }).name).toBe('Transformationspfarrstelle im Kirchenbezirk Weinsberg-Neuenstadt');
+  });
+
+  it('prefers the document heading over a transliterated listing slug', () => {
+    expect(parseVacancyText({
+      title: 'Gaechingen',
+      text: 'Pfarrstelle Gächingen\nDekanat: Münsingen\nDienstsitz: Gächingen\n',
+    }).name).toBe('Pfarrstelle Gächingen');
+  });
+
   it('extracts conservative structured fields from a representative text', () => {
     const result = parseVacancyText({
       title: 'Pfarrstelle Beispielort',

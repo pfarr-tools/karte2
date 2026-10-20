@@ -128,6 +128,7 @@ Abhängigkeiten wird das Image bewusst neu gebaut:
 | `./karte import --file /data/documents/name.pdf` | Eine gespeicherte PDF-Version gezielt erneut verarbeiten |
 | `./karte geocode` | Offene Standorte über den konfigurierten Dienst geocodieren |
 | `./karte geocode --dry-run` | Geocoding prüfen, ohne Standorte zu ändern |
+| `./karte geocode --review` | Mehrdeutige Treffer interaktiv prüfen und bestätigen |
 | `./karte scheduler` | Optionalen täglichen Import-Scheduler starten |
 | `./karte backup create` | SQLite und Dokumentarchiv sichern |
 | `./karte backup restore <Pfad> --yes` | Backup ausdrücklich wiederherstellen |
@@ -137,6 +138,11 @@ Der Import ist idempotent: dasselbe PDF mit derselben SHA-256-Prüfsumme wird ni
 doppelt angelegt. Ein geändertes PDF erhält eine neue Dokumentversion. Fehler bei
 einzelnen PDFs werden als Issue gespeichert; erfolgreiche Dokumente und alte
 Versionen bleiben erhalten.
+
+Für den angezeigten Pfarrstellentitel wird, sofern vorhanden, eine erkennbare
+Überschrift aus dem PDF-Text bevorzugt. Dadurch bleibt beispielsweise
+„Gächingen“ erhalten, auch wenn der Link oder Dateiname nur „Gaechingen“
+enthält. Der Dateiname dient nur als Fallback.
 
 ### 3.3 Persistente Daten
 

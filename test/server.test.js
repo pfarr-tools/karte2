@@ -223,6 +223,7 @@ describe('HTTP server', () => {
     expect(response.body).toContain('Filter öffnen');
     expect(response.body).toContain('offcanvas');
     expect(response.body).toContain('height: calc(100vh - var(--topbar-height))');
+    expect(response.body).toContain('map.fitBounds([[47.4, 7.5], [49.8, 10.8]]');
     expect(response.body).toContain('Number.isFinite(Number(location.latitude))');
     expect(response.body).toContain("location.latitude !== null && location.longitude !== null");
     expect(response.body).toContain('karte-marker-pin');

@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import { createInterface } from 'node:readline/promises';
 import { openDatabase } from './db/connection.js';
 import { migrateDatabase } from './db/migrate.js';
 import { syncSourceDefinitions, sourceDefinitions } from './db/source-registry.js';
@@ -7,7 +8,7 @@ import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
 import { extractPdfText } from './import/pdf-extractor.js';
 import { reprocessDocument } from './import/document-reprocessor.js';
-import { geocodeLocations, loadPoiReplacements } from './import/geocoder.js';
+import { fetchGeocodeCandidates, findGeocodeCandidates, geocodeLocations, loadPoiReplacements } from './import/geocoder.js';
 import { createBackup, restoreBackup } from './backup.js';
 
 const usage = `Usage: node src/cli.js <command>
@@ -21,6 +22,7 @@ Commands:
   import --file PATH   Reprocess one already stored PDF
   geocode              Geocode unresolved locations using the configured provider
   geocode --dry-run    Inspect unresolved locations without writing
+  geocode --review     Resolve ambiguous locations interactively
   backup create         Create a consistent SQLite and document backup
   backup restore --yes  Restore a backup with explicit confirmation
 `;
@@ -30,7 +32,7 @@ export function parseCliArgs(argv) {
   const options = argv.slice(1);
   const restorePathIndex = command === 'backup' && options.indexOf('restore') >= 0 ? options.indexOf('restore') + 1 : -1;
   let file = null;
-  const known = new Set(['--dry-run', '--yes', '--force']);
+  const known = new Set(['--dry-run', '--yes', '--force', '--review']);
   const unknown = options.find((option, index) => {
     if (option === '--file') {
       const value = options[index + 1];
@@ -48,7 +50,46 @@ export function parseCliArgs(argv) {
   }
   if (file && command !== 'import') throw new Error('--file is only valid for import');
   if (options.includes('--force') && command !== 'import') throw new Error('--force is only valid for import');
-  return { command, dryRun: options.includes('--dry-run'), force: options.includes('--force'), file };
+  if (options.includes('--review') && command !== 'geocode') throw new Error('--review is only valid for geocode');
+  return { command, dryRun: options.includes('--dry-run'), force: options.includes('--force'), file, ...(options.includes('--review') ? { review: true } : {}) };
+}
+
+async function reviewGeocoding({ database, providerUrl, replacements, fetchImpl = fetch, input = process.stdin, output = process.stderr }) {
+  const locations = database.prepare(`
+    SELECT id, name, address FROM locations
+    WHERE geocoding_confidence = 'ambiguous'
+    ORDER BY id
+  `).all();
+  const readline = createInterface({ input, output });
+  const update = database.prepare('UPDATE locations SET latitude = ?, longitude = ?, geocoding_provider = ?, geocoding_confidence = ?, verified_at = CURRENT_TIMESTAMP WHERE id = ?');
+  try {
+    for (const location of locations) {
+      let search = await findGeocodeCandidates({ location, providerUrl, replacements, fetchImpl });
+      while (true) {
+        output.write(`\nGeocodierung für ${location.name}\n`);
+        search.candidates.forEach((candidate, index) => output.write(`  ${index + 1}) ${candidate.display_name ?? `${candidate.lat}, ${candidate.lon}`}\n`));
+        output.write('  n) Neue Suche\n  ü) Überspringen\n');
+        const answer = (await readline.question('Auswahl: ')).trim().toLocaleLowerCase('de');
+        if (answer === 'ü' || answer === 'u' || answer === '') break;
+        if (answer === 'n') {
+          const query = (await readline.question('Suchbegriff: ')).trim();
+          if (query) search = { query, candidates: await fetchGeocodeCandidates({ query, providerUrl, fetchImpl }) };
+          continue;
+        }
+        const selected = search.candidates[Number(answer) - 1];
+        const latitude = Number(selected?.lat);
+        const longitude = Number(selected?.lon);
+        if (selected && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          update.run(latitude, longitude, providerUrl, 'verified', location.id);
+          output.write('  Standort übernommen.\n');
+          break;
+        }
+      }
+    }
+  } finally {
+    readline.close();
+  }
+  return { reviewed: locations.length };
 }
 
 async function fetchPage(url, fetchImpl = fetch, { sleepImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)), maxAttempts = 3 } = {}) {
@@ -103,10 +144,23 @@ export async function runCli(argv, dependencies = {}) {
   if (args.command === 'geocode') {
     const database = dependencies.database ?? openDatabase(config);
     migrateDatabase(database);
+    const replacements = dependencies.replacements ?? loadPoiReplacements(config.poiReplacePath);
+    if (args.review) {
+      const result = await reviewGeocoding({
+        database,
+        providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
+        replacements,
+        fetchImpl: dependencies.fetchImpl,
+        input: dependencies.input,
+        output: stderr,
+      });
+      stdout.write(JSON.stringify(result) + '\n');
+      return 0;
+    }
     const result = await geocodeLocations({
       database,
       providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
-      replacements: dependencies.replacements ?? loadPoiReplacements(config.poiReplacePath),
+      replacements,
       fetchImpl: dependencies.fetchImpl,
       minIntervalMs: config.geocoderMinIntervalMs,
       onProgress: ({ current, total, location, status, detail }) => {

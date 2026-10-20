@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { openDatabase } from '../src/db/connection.js';
 import { migrateDatabase } from '../src/db/migrate.js';
-import { buildGeocoderQueries, geocodeLocations, normalizePoiLookup } from '../src/import/geocoder.js';
+import { buildGeocoderQueries, findGeocodeCandidates, geocodeLocations, normalizePoiLookup } from '../src/import/geocoder.js';
 
 const roots = [];
 afterEach(() => { while (roots.length) fs.rmSync(roots.pop(), { recursive: true, force: true }); });
@@ -21,6 +21,17 @@ function database() {
 }
 
 describe('geocoder', () => {
+  it('returns all candidates for interactive disambiguation', async () => {
+    const result = await findGeocodeCandidates({
+      location: { name: 'Mehrdeutiger Ort', address: null },
+      providerUrl: 'https://nominatim.example/search',
+      fetchImpl: async () => ({ ok: true, async json() { return [{ lat: '48', lon: '9', display_name: 'Ort A' }, { lat: '49', lon: '10', display_name: 'Ort B' }]; } }),
+    });
+
+    expect(result).toMatchObject({ query: 'Evangelisches Pfarramt Mehrdeutiger Ort, Württemberg' });
+    expect(result.candidates).toHaveLength(2);
+  });
+
   it('uses the predecessor replacement mapping for imported vacancy names', () => {
     const replacements = new Map([
       [normalizePoiLookup('Rohr-Dürrlewang&#13;\n  II'), 'Dürrlewang'],

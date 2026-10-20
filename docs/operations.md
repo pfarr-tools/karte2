@@ -20,6 +20,7 @@ verfügbar.
 ./karte import --force
 ./karte import --file /data/documents/name.pdf
 ./karte geocode
+./karte geocode --review
 ```
 
 Der Geocoder schreibt während des Laufs Fortschrittszeilen nach `stderr`, zum
@@ -28,6 +29,9 @@ Beispiel `[Geocoding] 12/87 Ort: geocodiert`. Das abschließende JSON bleibt auf
 
 `GEOCODER_URL` muss auf einen Nominatim-kompatiblen Dienst zeigen. Mehrdeutige
 Treffer erhalten keine Koordinaten und müssen administrativ geprüft werden.
+Mit `./karte geocode --review` werden sie einzeln wie im Vorgänger geprüft:
+Treffer übernehmen, eine neue Suche starten oder überspringen. Übernommene
+Koordinaten erhalten die Konfidenz `verified`.
 Der Standardwert `GEOCODER_MIN_INTERVAL_MS=1000` begrenzt die Anfragen auf eine
 für öffentliche Nominatim-Dienste angemessene Frequenz. HTTP-429- und
 vorübergehende 5xx-Fehler werden mit Backoff wiederholt. Das CLI-Ergebnis weist
