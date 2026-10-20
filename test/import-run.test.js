@@ -221,4 +221,20 @@ describe('page import persistence', () => {
     expect(database.prepare('SELECT COUNT(*) AS count FROM position_locations').get().count).toBe(2);
     database.close();
   });
+
+  it('uses the corrected listing title as a geocoding fallback', async () => {
+    const database = makeDatabase();
+    await runPageImport({
+      database,
+      html: '<h2>Aktuelle Ausschreibungen</h2><a href="/downloads/one.pdf">Beispielort (PDF) 2 MB</a>',
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, 'hash-one'),
+      extractDocumentImpl: async ({ textPath }) => ({ textPath, pageCount: 1, text: 'Pfarrstelle Beispielort\nEine Schule vor Ort: vorhanden.\n' }),
+    });
+
+    expect(database.prepare('SELECT name FROM locations').all()).toEqual([{ name: 'Beispielort' }]);
+    database.close();
+  });
 });

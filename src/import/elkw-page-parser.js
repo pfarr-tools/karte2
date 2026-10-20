@@ -32,7 +32,13 @@ function sectionKey(category, round) {
 }
 
 function titleFromLink(text) {
-  return text.replace(/\s*\((?:PDF|DOCX)\)\s*$/i, '').replace(/\s+/g, ' ').trim();
+  return text
+    .replace(/\s*\((?:PDF|DOCX)\)(?:\s*[\d.,]+\s*(?:KB|MB|GB))?\s*$/i, '')
+    .replace(/[_]+/g, ' ')
+    .replace(/\s+(?:Dekan(?:at|ats)?(?:amt)?|Kirchenbezirk)\b.*$/i, '')
+    .replace(/\s+(?:WV|BV)\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**

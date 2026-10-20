@@ -162,6 +162,25 @@ describe('HTTP server', () => {
     expect(procedure.json().items.map((item) => item.name)).toEqual(['Passende Pfarrstelle']);
   });
 
+  it('does not expose positions whose only location is ambiguous', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'karte2-server-'));
+    temporaryDirectories.push(root);
+    const testRoot = path.join(root, 'test');
+    const database = openDatabase({ filename: path.join(testRoot, 'database.sqlite'), nodeEnv: 'test', testRoot, runtimeRoot: path.join(root, 'runtime') });
+    databases.push(database);
+    bootstrapDatabase(database);
+    database.prepare("INSERT INTO positions (stable_slug, normalized_name) VALUES ('mehrdeutig', 'Mehrdeutige Stelle')").run();
+    database.prepare("INSERT INTO locations (name, geocoding_confidence) VALUES ('Mehrdeutiger Ort', 'ambiguous')").run();
+    database.prepare("INSERT INTO position_locations (position_id, location_id, role) VALUES (1, 1, 'duty')").run();
+    database.prepare("INSERT INTO publications (position_id, source_id, category, first_seen_at, last_seen_at, current_state) VALUES (1, 'elkw-pfarrstellen', 'available', '2026-10-20', '2026-10-20', 'current')").run();
+
+    const server = buildServer({ database });
+    servers.push(server);
+    const response = await server.inject({ method: 'GET', url: '/api/publications' });
+
+    expect(response.json().items).toEqual([]);
+  });
+
   it('renders a German public map/list shell with an unofficial disclaimer', async () => {
     const server = buildServer();
     servers.push(server);

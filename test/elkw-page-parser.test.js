@@ -74,4 +74,13 @@ describe('ELKW listing page parser', () => {
     ]));
     expect(result.issues).toEqual([]);
   });
+
+  it('removes PDF file size suffixes from displayed titles', () => {
+    const result = parseElkwListingPage(`
+      <h2>Aktuelle Ausschreibungen</h2>
+      <a href="/downloads/atzenweiler.pdf">Atzenweiler-Vogt-I_Dekanat_Ravensburg_50%_WV (PDF) 6 MB</a>
+    `, options);
+
+    expect(result.documents[0].title).toBe('Atzenweiler-Vogt-I');
+  });
 });

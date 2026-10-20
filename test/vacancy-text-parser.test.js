@@ -30,6 +30,13 @@ describe('vacancy text parser', () => {
     });
   });
 
+  it('does not treat incidental prose ending in Ort as a location label', () => {
+    expect(parseVacancyText({
+      title: 'Pfarrstelle Beispielort',
+      text: 'Pfarrstelle Beispielort\nEine Schule und Einkaufsmöglichkeit vor Ort: vorhanden.\n',
+    }).locationName).toBe('Beispielort');
+  });
+
   it('normalizes names for deterministic cross-document matching', () => {
     expect(parseVacancyText({
       title: 'Pfarrstelle  Müll­er-Vogt',

@@ -14,6 +14,8 @@ function stableSlug(name) {
 }
 
 function updateImportedPosition(database, positionId, parsed) {
+  database.prepare('UPDATE positions SET stable_slug = ?, normalized_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(stableSlug(parsed.name), parsed.normalizedName, positionId);
   const importedFields = {
     type: parsed.type,
     deanery: parsed.deanery,

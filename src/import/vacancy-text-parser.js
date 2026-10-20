@@ -34,9 +34,10 @@ export function parseVacancyText({ title, text }) {
     /(?:Dekan(?:at|ats)|Kirchenbezirk)\s*:\s*([^\n]+)/i,
     /(?:Dekan(?:at|ats)|Kirchenbezirk)\s+([^\n]+)/i,
   ]);
-  const locationName = firstMatch(text, [
-    /(?:Dienstsitz|Dienstort|Ort)\s*:\s*([^\n]+)/i,
+  const explicitLocationName = firstMatch(text, [
+    /^\s*(?:Dienstsitz|Dienstort|Ort)\s*:\s*([^\n]+)/im,
   ]);
+  const locationName = explicitLocationName ?? (type === 'Pfarrstelle' ? name.replace(/^Pfarrstelle\s+/i, '').trim() : null);
   const appointmentProcedure = firstMatch(text, [
     /(?:Bewerbungs?|Besetzungs?)verfahren\s*:\s*([^\n]+)/i,
   ]);

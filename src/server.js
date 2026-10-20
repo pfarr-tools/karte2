@@ -122,6 +122,7 @@ function publicPage() {
 function publicationItems(database, query) {
   const clauses = [];
   const values = [];
+  clauses.push("(l.geocoding_confidence IS NULL OR l.geocoding_confidence <> 'ambiguous')");
   if (query.category) { clauses.push('pub.category = ?'); values.push(query.category); }
   if (query.positionId) { clauses.push('p.id = ?'); values.push(Number(query.positionId)); }
   if (query.q) {
