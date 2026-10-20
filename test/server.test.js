@@ -218,6 +218,7 @@ describe('HTTP server', () => {
     expect(response.body).toContain('history.replaceState');
     expect(response.body).toContain('mapLat');
     expect(response.body).toContain('mapZoom');
+    expect(response.body).toContain("['mapLat', 'mapLng', 'mapZoom'].every((key) => params.has(key)");
     expect(response.body).toContain('leaflet.markercluster');
     expect(response.body).toContain('mobile-list');
     expect(response.body).toContain('Filter öffnen');
