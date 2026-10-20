@@ -237,4 +237,23 @@ describe('page import persistence', () => {
     expect(database.prepare('SELECT name FROM locations').all()).toEqual([{ name: 'Beispielort' }]);
     database.close();
   });
+
+  it('updates the existing document position when its cleaned title changes', async () => {
+    const database = makeDatabase();
+    const options = {
+      database,
+      html: '<h2>Aktuelle Ausschreibungen</h2><a href="/downloads/one.pdf">Alte_Datei_Dekanat_Ravensburg_WV (PDF) 2 MB</a>',
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, 'hash-one'),
+      extractDocumentImpl: async ({ textPath }) => ({ textPath, pageCount: 1, text: 'Pfarrstelle Beispielort\nDienstsitz: Beispielort\n' }),
+    };
+    await runPageImport(options);
+    await runPageImport({ ...options, html: '<h2>Aktuelle Ausschreibungen</h2><a href="/downloads/one.pdf">Beispielort (PDF) 2 MB</a>', force: true });
+
+    expect(database.prepare('SELECT COUNT(*) AS count FROM positions').get().count).toBe(1);
+    expect(database.prepare('SELECT normalized_name FROM positions').get()).toEqual({ normalized_name: 'beispielort' });
+    database.close();
+  });
 });

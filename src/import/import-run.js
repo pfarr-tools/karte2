@@ -29,16 +29,42 @@ function updateImportedPosition(database, positionId, parsed) {
   }
 }
 
-function ensurePositionLocation(database, positionId, locationName) {
+function ensurePositionLocation(database, positionId, locationName, { replaceUnresolved = false } = {}) {
   if (!locationName) return;
   const existing = database.prepare('SELECT id FROM locations WHERE name = ? AND address IS NULL').get(locationName);
-  const locationId = existing?.id ?? database.prepare('INSERT INTO locations (name) VALUES (?)').run(locationName).lastInsertRowid;
+  let locationId = existing?.id;
+  if (!locationId) {
+    const linkedLocations = database.prepare(`
+      SELECT l.id, l.latitude, l.longitude, l.geocoding_confidence
+      FROM position_locations pl
+      JOIN locations l ON l.id = pl.location_id
+      WHERE pl.position_id = ? AND pl.role = 'duty'
+    `).all(positionId);
+    const replaceable = replaceUnresolved
+      && linkedLocations.length === 1
+      && linkedLocations[0].latitude === null
+      && linkedLocations[0].longitude === null
+      && ['ambiguous', 'not-found', null].includes(linkedLocations[0].geocoding_confidence);
+    if (replaceable) {
+      locationId = linkedLocations[0].id;
+      database.prepare('UPDATE locations SET name = ?, address = NULL, geocoding_provider = NULL, geocoding_confidence = NULL, verified_at = NULL WHERE id = ?').run(locationName, locationId);
+    } else {
+      locationId = database.prepare('INSERT INTO locations (name) VALUES (?)').run(locationName).lastInsertRowid;
+    }
+  }
   database.prepare('INSERT OR IGNORE INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(positionId, locationId, 'duty');
 }
 
 function persistPublication(database, { candidate, section, documentId, extractedText, observedAt }) {
   const parsed = parseVacancyText({ title: candidate.title, text: extractedText });
-  let position = database.prepare('SELECT id FROM positions WHERE normalized_name = ?').get(parsed.normalizedName);
+  let position = database.prepare(`
+    SELECT p.id FROM positions p
+    JOIN publications existing_publication ON existing_publication.position_id = p.id
+    WHERE existing_publication.document_id = ?
+    ORDER BY existing_publication.id
+    LIMIT 1
+  `).get(documentId);
+  position ??= database.prepare('SELECT id FROM positions WHERE normalized_name = ?').get(parsed.normalizedName);
   if (!position) {
     const locationId = parsed.locationName
       ? database.prepare('INSERT INTO locations (name) VALUES (?)').run(parsed.locationName).lastInsertRowid
@@ -54,7 +80,10 @@ function persistPublication(database, { candidate, section, documentId, extracte
     if (locationId) database.prepare('INSERT INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(position.id, locationId, 'duty');
   } else {
     updateImportedPosition(database, position.id, parsed);
-    ensurePositionLocation(database, position.id, parsed.locationName);
+    const isDocumentReprocessing = Boolean(database.prepare(
+      'SELECT id FROM publications WHERE document_id = ? LIMIT 1',
+    ).get(documentId));
+    ensurePositionLocation(database, position.id, parsed.locationName, { replaceUnresolved: isDocumentReprocessing });
   }
 
   const existingPublication = database.prepare(`
