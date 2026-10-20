@@ -14,6 +14,8 @@ services:
       POI_REPLACE_PATH: ${POI_REPLACE_PATH:-/app/poi/replace.json}
     ports:
       - "${PORT:-3000}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - karte-data:/data
       - ./poi/poi:/app/poi:ro
@@ -23,6 +25,8 @@ services:
     build:
       context: .
       target: production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_PATH: /data/karte.sqlite

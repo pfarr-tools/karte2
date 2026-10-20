@@ -39,4 +39,8 @@ describe('Docker build prerequisites', () => {
     expect(compose).toMatch(/GEOCODER_URL: \$\{GEOCODER_URL:-https:\/\/nominatim\.openstreetmap\.org\/search\}/g);
     expect((compose.match(/^\s+GEOCODER_URL:/gm) ?? []).length).toBe(2);
   });
+
+  it('maps the host gateway for Postfix SMTP relay access', () => {
+    expect((compose.match(/- "host\.docker\.internal:host-gateway"/g) ?? []).length).toBe(2);
+  });
 });
