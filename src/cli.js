@@ -106,6 +106,7 @@ export async function runCli(argv, dependencies = {}) {
       database,
       providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
       fetchImpl: dependencies.fetchImpl,
+      minIntervalMs: config.geocoderMinIntervalMs,
       dryRun: args.dryRun,
     });
     stdout.write(JSON.stringify(result) + '\n');

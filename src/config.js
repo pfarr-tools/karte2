@@ -7,6 +7,7 @@ export const config = Object.freeze({
   testRoot: process.env.TEST_ROOT ?? path.resolve('.test-data'),
   port: Number(process.env.PORT ?? 3000),
   geocoderUrl: process.env.GEOCODER_URL ?? '',
+  geocoderMinIntervalMs: Number(process.env.GEOCODER_MIN_INTERVAL_MS ?? 1_000),
   backupRoot: process.env.BACKUP_ROOT ?? path.resolve('storage/backups'),
   adminToken: process.env.ADMIN_TOKEN ?? '',
   importIntervalSeconds: Number(process.env.IMPORT_INTERVAL_SECONDS ?? 86_400),

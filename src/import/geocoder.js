@@ -2,11 +2,21 @@ function queryForLocation(location) {
   return [location.name, location.address].filter(Boolean).join(', ');
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function retryAfterMilliseconds(response) {
+  const value = response.headers?.get?.('retry-after');
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : 0;
+}
+
 /**
  * Geocode unresolved locations through a Nominatim-compatible endpoint.
  * Results are cached and ambiguous responses are deliberately not placed on the map.
  */
-export async function geocodeLocations({ database, providerUrl, fetchImpl = fetch, userAgent = 'karte2/0.1', dryRun = false }) {
+export async function geocodeLocations({ database, providerUrl, fetchImpl = fetch, userAgent = 'karte2/0.1', minIntervalMs = 1_000, maxRetries = 2, sleepImpl = wait, dryRun = false }) {
   if (!providerUrl) throw new Error('A geocoder URL is required');
   const locations = database.prepare(`
     SELECT id, name, address FROM locations
@@ -15,7 +25,13 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
   `).all();
   const update = database.prepare('UPDATE locations SET latitude = ?, longitude = ?, geocoding_provider = ?, geocoding_confidence = ?, verified_at = ? WHERE id = ?');
   const insertCache = database.prepare('INSERT OR REPLACE INTO geocode_cache (query, provider_url, response_json, fetched_at) VALUES (?, ?, ?, ?)');
-  const result = { inspected: locations.length, updated: 0, ambiguous: 0, cached: 0, failed: 0 };
+  const result = { inspected: locations.length, updated: 0, ambiguous: 0, cached: 0, failed: 0, failureReasons: {} };
+  let lastRequestAt = 0;
+
+  const recordFailure = (reason) => {
+    result.failed += 1;
+    result.failureReasons[reason] = (result.failureReasons[reason] ?? 0) + 1;
+  };
 
   for (const location of locations) {
     const query = queryForLocation(location);
@@ -31,13 +47,23 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
         url.searchParams.set('format', 'jsonv2');
         url.searchParams.set('limit', '5');
         url.searchParams.set('q', query);
-        const response = await fetchImpl(url, { headers: { 'accept': 'application/json', 'user-agent': userAgent } });
-        if (!response.ok) throw new Error(`Geocoder request failed with HTTP ${response.status}`);
-        candidates = await response.json();
-        if (!Array.isArray(candidates)) throw new Error('Geocoder response was not an array');
+        for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+          const waitFor = Math.max(0, minIntervalMs - (Date.now() - lastRequestAt));
+          if (waitFor) await sleepImpl(waitFor);
+          lastRequestAt = Date.now();
+          const response = await fetchImpl(url, { headers: { 'accept': 'application/json', 'user-agent': userAgent } });
+          if (response.ok) {
+            candidates = await response.json();
+            if (!Array.isArray(candidates)) throw new Error('invalid-json-shape');
+            break;
+          }
+          const reason = `http-${response.status}`;
+          if (attempt === maxRetries || (response.status !== 429 && response.status < 500)) throw new Error(reason);
+          await sleepImpl(Math.max(retryAfterMilliseconds(response), minIntervalMs, 2 ** attempt * 1_000));
+        }
         if (!dryRun) insertCache.run(cacheKey, providerUrl, JSON.stringify(candidates), new Date().toISOString());
-      } catch {
-        result.failed += 1;
+      } catch (error) {
+        recordFailure(error instanceof Error ? error.message : 'request-failed');
         continue;
       }
     }
@@ -49,8 +75,8 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
     const candidate = candidates[0];
     const latitude = Number(candidate.lat);
     const longitude = Number(candidate.lon);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      result.failed += 1;
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      recordFailure('invalid-coordinates');
       continue;
     }
     result.updated += 1;

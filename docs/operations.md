@@ -24,6 +24,10 @@ verfügbar.
 
 `GEOCODER_URL` muss auf einen Nominatim-kompatiblen Dienst zeigen. Mehrdeutige
 Treffer erhalten keine Koordinaten und müssen administrativ geprüft werden.
+Der Standardwert `GEOCODER_MIN_INTERVAL_MS=1000` begrenzt die Anfragen auf eine
+für öffentliche Nominatim-Dienste angemessene Frequenz. HTTP-429- und
+vorübergehende 5xx-Fehler werden mit Backoff wiederholt. Das CLI-Ergebnis weist
+unter `failureReasons` die konkreten Fehlerursachen aus.
 Der Abruf der offiziellen ELKW-Seite wird bei temporären Netzwerkfehlern oder
 HTTP 429/5xx mit begrenztem exponentiellem Backoff wiederholt.
 

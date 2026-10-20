@@ -255,6 +255,12 @@ markiert. Mehrere Treffer oder kein Treffer erhalten keine Koordinaten und werde
 als `ambiguous` beziehungsweise `not-found` gespeichert. Solche Orte dürfen
 nicht stillschweigend auf einen zufälligen Marker gesetzt werden.
 
+Der öffentliche Nominatim-Dienst wird standardmäßig höchstens einmal pro
+Sekunde angesprochen. Vorübergehende HTTP-429- und 5xx-Fehler werden automatisch
+mit Backoff wiederholt. Das Ergebnis von `./karte geocode` enthält bei
+verbleibenden Fehlern die Zählung `failureReasons`, zum Beispiel `http-429`,
+`http-503` oder `invalid-coordinates`.
+
 Die öffentliche Suche und Karte berücksichtigen ausschließlich Standorte mit
 Koordinaten und der Konfidenz `approximate` oder `verified`. Dadurch erscheinen
 unaufgelöste Standorte insbesondere nicht versehentlich bei `0,0` im Meer.

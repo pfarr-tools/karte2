@@ -30,8 +30,8 @@ describe('geocoder', () => {
       expect(url.toString()).toContain('Beispielort');
       return { ok: true, async json() { return [{ lat: '48.5', lon: '9.1', display_name: 'Beispielort' }]; } };
     };
-    const first = await geocodeLocations({ database: db, providerUrl: 'https://nominatim.example/search', fetchImpl });
-    const second = await geocodeLocations({ database: db, providerUrl: 'https://nominatim.example/search', fetchImpl });
+    const first = await geocodeLocations({ database: db, providerUrl: 'https://nominatim.example/search', fetchImpl, minIntervalMs: 0 });
+    const second = await geocodeLocations({ database: db, providerUrl: 'https://nominatim.example/search', fetchImpl, minIntervalMs: 0 });
 
     expect(first).toMatchObject({ updated: 1, ambiguous: 1 });
     expect(second).toMatchObject({ cached: 1, ambiguous: 1 });
@@ -40,6 +40,21 @@ describe('geocoder', () => {
       .toEqual({ latitude: 48.5, longitude: 9.1, geocoding_confidence: 'approximate' });
     expect(db.prepare('SELECT latitude, longitude, geocoding_confidence FROM locations WHERE id = 2').get())
       .toEqual({ latitude: null, longitude: null, geocoding_confidence: 'ambiguous' });
+    db.close();
+  });
+
+  it('retries rate limits and reports persistent provider failures', async () => {
+    const db = database();
+    let requests = 0;
+    const fetchImpl = async () => {
+      requests += 1;
+      return { ok: false, status: 429, headers: { get: () => null } };
+    };
+
+    const result = await geocodeLocations({ database: db, providerUrl: 'https://nominatim.example/search', fetchImpl, minIntervalMs: 0, sleepImpl: async () => {} });
+
+    expect(requests).toBe(6);
+    expect(result).toMatchObject({ failed: 2, failureReasons: { 'http-429': 2 } });
     db.close();
   });
 });
