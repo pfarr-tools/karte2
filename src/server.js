@@ -35,6 +35,7 @@ function publicPage() {
     #map-panel { width: 100%; }
     #list-panel { height: calc(100vh - var(--topbar-height)); overflow: auto; }
     .leaflet-popup-content { margin: 12px 14px; }
+    .leaflet-container a.btn-primary { color: #fff; }
     .karte-marker-pin { display: block; width: 24px; height: 34px; border: 2px solid #fff; border-radius: 50% 50% 50% 0; box-shadow: 0 1px 4px rgba(0,0,0,.45); transform: rotate(-45deg); }
     .karte-marker-pin::after { content: ''; display: block; width: 8px; height: 8px; margin: 6px; border-radius: 50%; background: rgba(255,255,255,.85); }
     .karte-marker-pin.advertised { background: #198754; }

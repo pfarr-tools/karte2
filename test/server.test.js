@@ -226,6 +226,7 @@ describe('HTTP server', () => {
     expect(response.body).toContain('Number.isFinite(Number(location.latitude))');
     expect(response.body).toContain("location.latitude !== null && location.longitude !== null");
     expect(response.body).toContain('karte-marker-pin');
+    expect(response.body).toContain('.leaflet-container a.btn-primary { color: #fff; }');
     expect(response.body).toContain('Kirchenbezirk');
     expect(response.body).toContain('/api/kirchenbezirke');
     expect(response.body).toContain('Originaldokument öffnen');
