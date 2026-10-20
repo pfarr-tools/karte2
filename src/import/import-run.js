@@ -13,9 +13,16 @@ function stableSlug(name) {
     .replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+function uniqueStableSlug(database, name, positionId) {
+  const base = stableSlug(name) || 'unbenannte-pfarrstelle';
+  const conflict = database.prepare('SELECT id FROM positions WHERE stable_slug = ? AND id <> ? LIMIT 1')
+    .get(base, positionId);
+  return conflict ? `${base}-${positionId}` : base;
+}
+
 function updateImportedPosition(database, positionId, parsed) {
   database.prepare('UPDATE positions SET stable_slug = ?, normalized_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .run(stableSlug(parsed.name), parsed.normalizedName, positionId);
+    .run(uniqueStableSlug(database, parsed.name, positionId), parsed.normalizedName, positionId);
   const importedFields = {
     type: parsed.type,
     deanery: parsed.deanery,
@@ -66,6 +73,8 @@ function persistPublication(database, { candidate, section, documentId, extracte
   `).get(documentId);
   position ??= database.prepare('SELECT id FROM positions WHERE normalized_name = ?').get(parsed.normalizedName);
   if (!position) {
+    const baseSlug = stableSlug(parsed.name) || 'unbenannte-pfarrstelle';
+    const occupied = database.prepare('SELECT id FROM positions WHERE stable_slug = ? LIMIT 1').get(baseSlug);
     const locationId = parsed.locationName
       ? database.prepare('INSERT INTO locations (name) VALUES (?)').run(parsed.locationName).lastInsertRowid
       : null;
@@ -73,10 +82,12 @@ function persistPublication(database, { candidate, section, documentId, extracte
       INSERT INTO positions (stable_slug, normalized_name, type, deanery, employment_percentage, employment_description, description, primary_location_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      stableSlug(parsed.name), parsed.normalizedName, parsed.type, parsed.deanery, parsed.employmentPercentage,
+      occupied ? `${baseSlug}-document-${documentId}` : baseSlug, parsed.normalizedName, parsed.type, parsed.deanery, parsed.employmentPercentage,
       parsed.employmentDescription, parsed.description, locationId,
     );
     position = { id: Number(inserted.lastInsertRowid) };
+    database.prepare('UPDATE positions SET stable_slug = ? WHERE id = ?')
+      .run(uniqueStableSlug(database, parsed.name, position.id), position.id);
     if (locationId) database.prepare('INSERT INTO position_locations (position_id, location_id, role) VALUES (?, ?, ?)').run(position.id, locationId, 'duty');
   } else {
     updateImportedPosition(database, position.id, parsed);

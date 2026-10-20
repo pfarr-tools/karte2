@@ -256,4 +256,29 @@ describe('page import persistence', () => {
     expect(database.prepare('SELECT normalized_name FROM positions').get()).toEqual({ normalized_name: 'beispielort' });
     database.close();
   });
+
+  it('keeps stable slugs unique when different documents receive the same cleaned title', async () => {
+    const database = makeDatabase();
+    const options = {
+      database,
+      html: '<h2>Aktuelle Ausschreibungen</h2><a href="/downloads/one.pdf">Alte_Stelle_Eins (PDF)</a><a href="/downloads/two.pdf">Alte_Stelle_Zwei (PDF)</a>',
+      sourceId: 'elkw-pfarrstellen',
+      pageUrl,
+      observedAt: '2026-10-19T12:00:00Z',
+      downloadDocumentImpl: async ({ url }) => artifact(url, url.endsWith('one.pdf') ? 'hash-one' : 'hash-two'),
+      extractDocumentImpl: async ({ textPath }) => ({ textPath, pageCount: 1, text: 'Pfarrstelle Transformationspfarrstelle B im Kirchenbezirk\n' }),
+    };
+    await runPageImport(options);
+    await runPageImport({
+      ...options,
+      html: '<h2>Aktuelle Ausschreibungen</h2><a href="/downloads/one.pdf">Transformationspfarrstelle B im (PDF)</a><a href="/downloads/two.pdf">Transformationspfarrstelle B im (PDF)</a>',
+      force: true,
+    });
+
+    expect(database.prepare('SELECT COUNT(*) AS count FROM positions').get().count).toBe(2);
+    const slugs = database.prepare('SELECT stable_slug FROM positions ORDER BY id').all().map(({ stable_slug }) => stable_slug);
+    expect(new Set(slugs).size).toBe(2);
+    expect(slugs).toEqual(expect.arrayContaining(['transformationspfarrstelle-b-im', 'transformationspfarrstelle-b-im-2']));
+    database.close();
+  });
 });
