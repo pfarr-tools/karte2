@@ -7,7 +7,7 @@ import { runPageImport } from './import/import-run.js';
 import { parseElkwListingPage } from './import/elkw-page-parser.js';
 import { extractPdfText } from './import/pdf-extractor.js';
 import { reprocessDocument } from './import/document-reprocessor.js';
-import { geocodeLocations } from './import/geocoder.js';
+import { geocodeLocations, loadPoiReplacements } from './import/geocoder.js';
 import { createBackup, restoreBackup } from './backup.js';
 
 const usage = `Usage: node src/cli.js <command>
@@ -106,6 +106,7 @@ export async function runCli(argv, dependencies = {}) {
     const result = await geocodeLocations({
       database,
       providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
+      replacements: dependencies.replacements ?? loadPoiReplacements(config.poiReplacePath),
       fetchImpl: dependencies.fetchImpl,
       minIntervalMs: config.geocoderMinIntervalMs,
       onProgress: ({ current, total, location, status, detail }) => {

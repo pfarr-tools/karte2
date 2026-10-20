@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { openDatabase } from '../src/db/connection.js';
 import { migrateDatabase } from '../src/db/migrate.js';
-import { buildGeocoderQueries, geocodeLocations } from '../src/import/geocoder.js';
+import { buildGeocoderQueries, geocodeLocations, normalizePoiLookup } from '../src/import/geocoder.js';
 
 const roots = [];
 afterEach(() => { while (roots.length) fs.rmSync(roots.pop(), { recursive: true, force: true }); });
@@ -21,6 +21,18 @@ function database() {
 }
 
 describe('geocoder', () => {
+  it('uses the predecessor replacement mapping for imported vacancy names', () => {
+    const replacements = new Map([
+      [normalizePoiLookup('Rohr-Dürrlewang&#13;\n  II'), 'Dürrlewang'],
+    ]);
+
+    expect(buildGeocoderQueries({ name: 'Rohr-Dürrlewang II', address: null }, { replacements })).toEqual([
+      'Dürrlewang',
+      'Evangelisches Pfarramt Rohr, Württemberg',
+      'Rohr, Württemberg',
+    ]);
+  });
+
   it('builds Pfarramt-friendly place queries from regional vacancy names', () => {
     expect(buildGeocoderQueries({ name: 'Kirchheim unter Teck West II', address: null })).toEqual([
       'Evangelisches Pfarramt Kirchheim unter Teck, Württemberg',

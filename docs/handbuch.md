@@ -161,6 +161,9 @@ Die Vorlage liegt in `.env.example`. Eine lokale `.env` wird nicht committed.
 | `RUNTIME_ROOT` | `/data` | Wurzel für PDFs und Artefakte |
 | `TEST_ROOT` | `/tmp/karte2-test` | Erlaubtes Testdatenverzeichnis |
 | `GEOCODER_URL` | Nominatim-Beispiel | Nominatim-kompatibler Geocoder |
+| `GEOCODER_MIN_INTERVAL_MS` | `1000` | Mindestabstand zwischen Geocoder-Anfragen in Millisekunden |
+| `KIRCHENBEZIRKE_PATH` | `/app/poi/KiBez.json` | Grenzdatei im Vorgängerformat oder GeoJSON |
+| `POI_REPLACE_PATH` | `/app/poi/replace.json` | Optionales Mapping für bekannte Ortsnamen-Sonderformen |
 | `BACKUP_ROOT` | `/data/backups` | Ziel für Backups |
 | `ADMIN_TOKEN` | leer | Bearer-Token für Admin-Endpunkte |
 | `IMPORT_INTERVAL_SECONDS` | `86400` | Scheduler-Intervall |
@@ -168,6 +171,16 @@ Die Vorlage liegt in `.env.example`. Eine lokale `.env` wird nicht committed.
 Für den öffentlichen Nominatim-Dienst gelten dessen Nutzungsbedingungen und
 Rate-Limits. Ein eigener oder ausdrücklich erlaubter kompatibler Dienst ist für
 regelmäßige Produktion vorzuziehen.
+
+### 4.1 Optionale POI-Daten des Vorgängers
+
+Die Anwendung kann die aus `karte` übernommenen POI-Daten verwenden. Liegt der
+Ordner `poi/poi/` im Projektverzeichnis, wird er von Compose automatisch
+read-only in den Container eingebunden. `KiBez.json` liefert die Grenzen der
+Kirchenbezirke für die Karte; `replace.json` verbessert die Geocoder-Suche bei
+historischen oder mehrzeiligen Ortsbezeichnungen. Fehlen die Dateien, startet
+die Anwendung weiterhin, lediglich die Grenzebene bzw. das zusätzliche Mapping
+steht dann nicht zur Verfügung.
 
 ## 5. Administration
 

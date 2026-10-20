@@ -1,3 +1,25 @@
+import fs from 'node:fs';
+
+export function normalizePoiLookup(value) {
+  return String(value ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#13;|&#10;|\r|\n/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('de');
+}
+
+export function loadPoiReplacements(filePath) {
+  if (!filePath) return new Map();
+  try {
+    const values = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return new Map(Object.entries(values).map(([key, value]) => [normalizePoiLookup(key), String(value).trim()]).filter(([, value]) => value));
+  } catch {
+    return new Map();
+  }
+}
+
 function sanitizePlaceName(value) {
   let place = String(value ?? '').replace(/\s+/g, ' ').trim();
   place = place.replace(/\s+(?:Nord|Süd|Ost|West|Mitte)\b/gi, '');
@@ -6,12 +28,14 @@ function sanitizePlaceName(value) {
   return place.trim();
 }
 
-export function buildGeocoderQueries(location) {
+export function buildGeocoderQueries(location, { replacements = new Map() } = {}) {
   const place = sanitizePlaceName(location.name);
   const queries = [];
   const add = (query) => {
     if (query && !queries.includes(query)) queries.push(query);
   };
+  const replacement = replacements.get(normalizePoiLookup(location.name));
+  add(replacement);
   if (location.address) add(`${location.address}, ${place}, Württemberg`);
   add(`Evangelisches Pfarramt ${place}, Württemberg`);
   add(`${place}, Württemberg`);
@@ -32,7 +56,7 @@ function retryAfterMilliseconds(response) {
  * Geocode unresolved locations through a Nominatim-compatible endpoint.
  * Results are cached and ambiguous responses are deliberately not placed on the map.
  */
-export async function geocodeLocations({ database, providerUrl, fetchImpl = fetch, userAgent = 'karte2/0.1', minIntervalMs = 1_000, maxRetries = 2, sleepImpl = wait, onProgress, dryRun = false }) {
+export async function geocodeLocations({ database, providerUrl, replacements = new Map(), fetchImpl = fetch, userAgent = 'karte2/0.1', minIntervalMs = 1_000, maxRetries = 2, sleepImpl = wait, onProgress, dryRun = false }) {
   if (!providerUrl) throw new Error('A geocoder URL is required');
   const locations = database.prepare(`
     SELECT id, name, address FROM locations
@@ -90,7 +114,7 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
     let hadCandidates = false;
     let cached = false;
     let lastError = null;
-    for (const query of buildGeocoderQueries(location)) {
+    for (const query of buildGeocoderQueries(location, { replacements })) {
       const loaded = await loadCandidates(query);
       if (loaded.error) {
         lastError = loaded.error;

@@ -10,10 +10,13 @@ services:
       PORT: ${PORT:-3000}
       GEOCODER_URL: ${GEOCODER_URL:-https://nominatim.openstreetmap.org/search}
       GEOCODER_MIN_INTERVAL_MS: ${GEOCODER_MIN_INTERVAL_MS:-1000}
+      KIRCHENBEZIRKE_PATH: ${KIRCHENBEZIRKE_PATH:-/app/poi/KiBez.json}
+      POI_REPLACE_PATH: ${POI_REPLACE_PATH:-/app/poi/replace.json}
     ports:
       - "${PORT:-3000}:3000"
     volumes:
       - karte-data:/data
+      - ./poi/poi:/app/poi:ro
 
   scheduler:
     profiles: [scheduler]
@@ -26,9 +29,12 @@ services:
       RUNTIME_ROOT: /data
       GEOCODER_URL: ${GEOCODER_URL:-https://nominatim.openstreetmap.org/search}
       GEOCODER_MIN_INTERVAL_MS: ${GEOCODER_MIN_INTERVAL_MS:-1000}
+      KIRCHENBEZIRKE_PATH: ${KIRCHENBEZIRKE_PATH:-/app/poi/KiBez.json}
+      POI_REPLACE_PATH: ${POI_REPLACE_PATH:-/app/poi/replace.json}
       IMPORT_INTERVAL_SECONDS: ${IMPORT_INTERVAL_SECONDS:-86400}
     volumes:
       - karte-data:/data
+      - ./poi/poi:/app/poi:ro
     command: ["node", "src/scheduler.js"]
 
 volumes:

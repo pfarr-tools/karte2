@@ -34,9 +34,17 @@ vorübergehende 5xx-Fehler werden mit Backoff wiederholt. Das CLI-Ergebnis weist
 unter `failureReasons` die konkreten Fehlerursachen aus.
 
 Die optionale Grenzdatei der Kirchenbezirke wird über `KIRCHENBEZIRKE_PATH`
-eingebunden. Unterstützt werden das Vorgängerformat von `KiBez.json` (Objekt
-aus Bezeichnung und Koordinatenlisten) sowie GeoJSON. Ist die Datei nicht
-vorhanden, bleibt die Karte ohne Grenzebene; die Anwendung startet trotzdem.
+eingebunden. Wenn das vom Vorgänger übernommene Verzeichnis `poi/poi/` im
+Projekt vorhanden ist, bindet Compose es automatisch read-only als `/app/poi`
+ein und verwendet `/app/poi/KiBez.json`. Unterstützt werden das
+Vorgängerformat von `KiBez.json` (Objekt aus Bezeichnung und Koordinatenlisten)
+sowie GeoJSON. Ist die Datei nicht vorhanden, bleibt die Karte ohne Grenzebene;
+die Anwendung startet trotzdem.
+
+Zusätzlich wird `/app/poi/replace.json` (konfigurierbar über
+`POI_REPLACE_PATH`) beim Geocoding als Vorgänger-Mapping für Sonderformen von
+Orts- und Pfarrstellennamen verwendet. Die Dateien im lokalen `poi/`-Ordner
+sind große, abgeleitete Laufzeitdaten und werden nicht in Git eingecheckt.
 Der Abruf der offiziellen ELKW-Seite wird bei temporären Netzwerkfehlern oder
 HTTP 429/5xx mit begrenztem exponentiellem Backoff wiederholt.
 

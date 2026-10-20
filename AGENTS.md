@@ -60,6 +60,8 @@ Use idempotent imports, explicit validation and source-specific status reporting
   procedure, environment variable or recovery procedure changes.
 - Do not document behavior that is only planned; verify commands and endpoint
   names against the implementation before committing.
+- Treat the optional local `poi/` directory as operational input data: do not
+  commit its large generated JSON files unless explicitly requested.
 
 ## CLI and operations
 

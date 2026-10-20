@@ -9,6 +9,7 @@ export const config = Object.freeze({
   geocoderUrl: process.env.GEOCODER_URL ?? '',
   geocoderMinIntervalMs: Number(process.env.GEOCODER_MIN_INTERVAL_MS ?? 1_000),
   boundaryPath: process.env.KIRCHENBEZIRKE_PATH ?? '/data/poi/KiBez.json',
+  poiReplacePath: process.env.POI_REPLACE_PATH ?? '/data/poi/replace.json',
   backupRoot: process.env.BACKUP_ROOT ?? path.resolve('storage/backups'),
   adminToken: process.env.ADMIN_TOKEN ?? '',
   importIntervalSeconds: Number(process.env.IMPORT_INTERVAL_SECONDS ?? 86_400),
