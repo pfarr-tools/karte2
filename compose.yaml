@@ -8,6 +8,7 @@ services:
       DATABASE_PATH: /data/karte.sqlite
       RUNTIME_ROOT: /data
       PORT: ${PORT:-3000}
+      GEOCODER_URL: ${GEOCODER_URL:-https://nominatim.openstreetmap.org/search}
     ports:
       - "${PORT:-3000}:3000"
     volumes:
@@ -22,6 +23,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_PATH: /data/karte.sqlite
       RUNTIME_ROOT: /data
+      GEOCODER_URL: ${GEOCODER_URL:-https://nominatim.openstreetmap.org/search}
       IMPORT_INTERVAL_SECONDS: ${IMPORT_INTERVAL_SECONDS:-86400}
     volumes:
       - karte-data:/data
