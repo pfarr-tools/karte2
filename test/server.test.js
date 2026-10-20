@@ -225,6 +225,10 @@ describe('HTTP server', () => {
     expect(response.body).toContain('height: calc(100vh - var(--topbar-height))');
     expect(response.body).toContain('Number.isFinite(Number(location.latitude))');
     expect(response.body).toContain("location.latitude !== null && location.longitude !== null");
+    expect(response.body).toContain('karte-marker-pin');
+    expect(response.body).toContain('Kirchenbezirk');
+    expect(response.body).toContain('/api/kirchenbezirke');
+    expect(response.body).toContain('Originaldokument öffnen');
     expect(response.body).toContain('id="list-panel" class="d-none');
     expect(response.body).toContain('Aktuelle Ausschreibung');
     expect(response.body).toContain('Verfügbare Pfarrstelle');

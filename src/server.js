@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import fs from 'node:fs';
 import { config } from './config.js';
 import { openDatabase } from './db/connection.js';
 import { migrateDatabase } from './db/migrate.js';
@@ -34,6 +35,12 @@ function publicPage() {
     #map-panel { width: 100%; }
     #list-panel { height: calc(100vh - var(--topbar-height)); overflow: auto; }
     .leaflet-popup-content { margin: 12px 14px; }
+    .karte-marker-pin { display: block; width: 24px; height: 34px; border: 2px solid #fff; border-radius: 50% 50% 50% 0; box-shadow: 0 1px 4px rgba(0,0,0,.45); transform: rotate(-45deg); }
+    .karte-marker-pin::after { content: ''; display: block; width: 8px; height: 8px; margin: 6px; border-radius: 50%; background: rgba(255,255,255,.85); }
+    .karte-marker-pin.advertised { background: #198754; }
+    .karte-marker-pin.available { background: #ffc107; }
+    .karte-marker-pin.upcoming { background: #6c757d; }
+    .karte-boundary-label { color: #6f0877; font-size: 11px; font-weight: 700; line-height: 1.05; text-align: center; text-shadow: 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
   </style>
 </head>
 <body class="bg-body-tertiary">
@@ -88,21 +95,49 @@ function publicPage() {
     const listButton = document.querySelector('#mobile-list');
     const mapButton = document.querySelector('#mobile-map');
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-    const categoryColors = { advertised: '#b02a37', available: '#146c43', upcoming: '#664d03' };
     let hasExplicitMapState = false;
     const markerFor = (location, category) => L.marker([location.latitude, location.longitude], {
-      icon: L.divIcon({ className: 'karte-marker', html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:' + (categoryColors[category] || '#0d6efd') + ';border:2px solid white;box-shadow:0 0 0 1px #333"></span>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+      title: location.name,
+      icon: L.divIcon({ className: 'karte-marker', html: '<span class="karte-marker-pin ' + (category || 'upcoming') + '"></span>', iconSize: [30, 40], iconAnchor: [5, 34], popupAnchor: [0, -32] }),
     });
+    const badge = (label, color) => '<span class="badge text-bg-' + color + ' me-1">' + escapeHtml(label) + '</span>';
+    function popupFor(item, location) {
+      const details = [
+        item.deanery ? '<tr><th>Kirchenbezirk</th><td>' + escapeHtml(item.deanery) + '</td></tr>' : '',
+        item.employmentPercentage !== null && item.employmentPercentage !== undefined ? '<tr><th>Umfang</th><td>' + escapeHtml(item.employmentPercentage) + ' %</td></tr>' : '',
+        location.address ? '<tr><th>Adresse</th><td>' + escapeHtml(location.address) + '</td></tr>' : '',
+        item.deadline ? '<tr><th>Bewerbungsfrist</th><td>' + escapeHtml(item.deadline) + '</td></tr>' : '',
+        item.appointmentProcedure ? '<tr><th>Verfahren</th><td>' + escapeHtml(item.appointmentProcedure) + '</td></tr>' : '',
+      ].join('');
+      return '<article class="karte-popup"><h3 class="h6 mb-2">' + escapeHtml(item.name) + '</h3><div class="mb-2">' + badge(categoryLabels[item.category] || 'Unbekannte Kategorie', item.category === 'advertised' ? 'success' : item.category === 'available' ? 'warning' : 'secondary') + '</div>' + (details ? '<table class="table table-sm mb-2">' + details + '</table>' : '') + '<div class="d-flex gap-2"><a class="btn btn-sm btn-primary" href="/position/' + encodeURIComponent(item.positionId) + '">Details</a><a class="btn btn-sm btn-outline-secondary" href="' + escapeHtml(item.documentUrl || item.source.url) + '" target="_blank" rel="noopener">Originaldokument öffnen</a></div></article>';
+    }
+    function addBoundaryLabel(layer, name, number = null) {
+      const center = layer.getBounds().getCenter();
+      const label = number === null ? name : name + '<br>' + number;
+      L.marker(center, { interactive: false, icon: L.divIcon({ className: 'karte-boundary-label', html: escapeHtml(label).replace('&lt;br&gt;', '<br>'), iconSize: [110, 28], iconAnchor: [55, 14] }) }).addTo(map);
+    }
+    function renderBoundaries(data) {
+      const style = { color: '#8e0081', weight: 2, opacity: 0.55, fill: false };
+      if (data?.type === 'FeatureCollection') {
+        L.geoJSON(data, { style, onEachFeature: (feature, layer) => addBoundaryLabel(layer, feature.properties?.name || feature.properties?.label || 'Kirchenbezirk') }).addTo(map);
+        return;
+      }
+      for (const [name, coordinates] of Object.entries(data || {})) {
+        const layer = L.polyline(coordinates, style).addTo(map);
+        addBoundaryLabel(layer, 'Kirchenbezirk', name);
+      }
+    }
+    async function loadBoundaries() { try { const response = await fetch('/api/kirchenbezirke'); if (response.ok) renderBoundaries(await response.json()); } catch { /* Grenzebene ist optional. */ } }
     function render(items) {
       markers.clearLayers();
       results.innerHTML = items.length ? '<div class="table-responsive"><table class="table table-striped align-middle"><caption class="visually-hidden">Gefundene Pfarrstellen</caption><thead><tr><th scope="col">Name</th><th scope="col">Kategorie</th><th scope="col">Ort/Dekanat</th><th scope="col">Frist</th><th scope="col">Quelle</th></tr></thead><tbody>' + items.map((item) => '<tr><th scope="row"><a href="/position/' + encodeURIComponent(item.positionId || item.id) + '">' + escapeHtml(item.name) + '</a><div class="small text-body-secondary">' + escapeHtml(item.type || '') + '</div></th><td><span class="badge text-bg-secondary">' + escapeHtml(categoryLabels[item.category] || 'Unbekannte Kategorie') + '</span></td><td>' + escapeHtml(item.locations.map((location) => location.name).join(', ') || item.deanery || 'Kein Ort angegeben') + '</td><td>' + escapeHtml(item.deadline || 'Keine Frist angegeben') + '</td><td><a href="' + escapeHtml(item.documentUrl || item.source.url) + '">' + escapeHtml(item.source.name) + '</a></td></tr>').join('') + '</tbody></table></div>' : '<p class="alert alert-info">Keine Pfarrstellen gefunden.</p>';
-      const located = items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => location.latitude !== null && location.longitude !== null && location.latitude !== '' && location.longitude !== '' && Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)));
+      const located = items.flatMap((item) => item.locations.map((location) => ({ ...location, item }))).filter((location) => location.latitude !== null && location.longitude !== null && location.latitude !== '' && location.longitude !== '' && Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)));
       const bounds = [];
       located.forEach((location) => {
         const point = [Number(location.latitude), Number(location.longitude)];
         bounds.push(point);
-        markerFor({ ...location, latitude: point[0], longitude: point[1] }, location.category)
-          .bindPopup('<strong>' + escapeHtml(location.name) + '</strong><br>' + escapeHtml(categoryLabels[location.category] || 'Unbekannte Kategorie'))
+        markerFor({ ...location, name: location.item.name, latitude: point[0], longitude: point[1] }, location.item.category)
+          .bindPopup(popupFor(location.item, location))
           .addTo(markers);
       });
       if (bounds.length && !hasExplicitMapState) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
@@ -113,7 +148,7 @@ function publicPage() {
     function replaceUrl() { const params = stateParams(); history.replaceState(null, '', '?' + params); }
     function restoreParams() { const params = new URLSearchParams(window.location.search); for (const control of form.elements) if (control.name && params.has(control.name)) control.value = params.get(control.name); const lat = Number(params.get('mapLat')); const lng = Number(params.get('mapLng')); const zoom = Number(params.get('mapZoom')); hasExplicitMapState = [lat, lng, zoom].every(Number.isFinite) && zoom >= 0 && zoom <= 20 && Math.abs(lat) <= 90 && Math.abs(lng) <= 180; if (hasExplicitMapState) map.setView([lat, lng], zoom); }
     async function load() { const params = stateParams(); replaceUrl(); const response = await fetch('/api/publications?' + new URLSearchParams([...params].filter(([key]) => !key.startsWith('map')))); render((await response.json()).items); }
-    restoreParams(); map.on('moveend', replaceUrl); listButton.addEventListener('click', () => setView('list')); mapButton.addEventListener('click', () => setView('map')); form.addEventListener('input', load); load();
+     restoreParams(); map.on('moveend', replaceUrl); listButton.addEventListener('click', () => setView('list')); mapButton.addEventListener('click', () => setView('map')); form.addEventListener('input', load); loadBoundaries(); load();
   </script>
 </body>
 </html>`;
@@ -216,7 +251,7 @@ function positionDetailPage(item) {
 </html>`;
 }
 
-export function buildServer({ database = null, adminToken = config.adminToken, importRunner = null } = {}) {
+export function buildServer({ database = null, adminToken = config.adminToken, importRunner = null, boundaryPath = config.boundaryPath } = {}) {
   const server = Fastify({ logger: true });
   server.addHook('onRequest', async (request, reply) => {
     if (!request.url.startsWith('/admin/')) return;
@@ -234,6 +269,13 @@ export function buildServer({ database = null, adminToken = config.adminToken, i
       : 0,
   }));
   server.get('/', async (_, reply) => reply.type('text/html').send(publicPage()));
+  server.get('/api/kirchenbezirke', async (_, reply) => {
+    try {
+      return JSON.parse(fs.readFileSync(boundaryPath, 'utf8'));
+    } catch {
+      return reply.send({ type: 'FeatureCollection', features: [] });
+    }
+  });
   server.get('/api/publications', async (request) => ({ items: database ? publicationItems(database, request.query) : [] }));
   server.get('/api/positions/:id', async (request, reply) => {
     const items = database ? publicationItems(database, { positionId: request.params.id }) : [];

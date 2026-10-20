@@ -32,6 +32,11 @@ Der Standardwert `GEOCODER_MIN_INTERVAL_MS=1000` begrenzt die Anfragen auf eine
 für öffentliche Nominatim-Dienste angemessene Frequenz. HTTP-429- und
 vorübergehende 5xx-Fehler werden mit Backoff wiederholt. Das CLI-Ergebnis weist
 unter `failureReasons` die konkreten Fehlerursachen aus.
+
+Die optionale Grenzdatei der Kirchenbezirke wird über `KIRCHENBEZIRKE_PATH`
+eingebunden. Unterstützt werden das Vorgängerformat von `KiBez.json` (Objekt
+aus Bezeichnung und Koordinatenlisten) sowie GeoJSON. Ist die Datei nicht
+vorhanden, bleibt die Karte ohne Grenzebene; die Anwendung startet trotzdem.
 Der Abruf der offiziellen ELKW-Seite wird bei temporären Netzwerkfehlern oder
 HTTP 429/5xx mit begrenztem exponentiellem Backoff wiederholt.
 

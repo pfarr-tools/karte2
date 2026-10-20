@@ -1,5 +1,21 @@
-function queryForLocation(location) {
-  return [location.name, location.address].filter(Boolean).join(', ');
+function sanitizePlaceName(value) {
+  let place = String(value ?? '').replace(/\s+/g, ' ').trim();
+  place = place.replace(/\s+(?:Nord|Süd|Ost|West|Mitte)\b/gi, '');
+  place = place.split(' ').filter((part, index) => index === 0 || !/kirche/i.test(part)).filter((part) => !/^(?:I|II|III|IV|V|VI|VII|VIII)$/i.test(part)).join(' ');
+  if (place.includes('-')) place = place.split('-')[0];
+  return place.trim();
+}
+
+export function buildGeocoderQueries(location) {
+  const place = sanitizePlaceName(location.name);
+  const queries = [];
+  const add = (query) => {
+    if (query && !queries.includes(query)) queries.push(query);
+  };
+  if (location.address) add(`${location.address}, ${place}, Württemberg`);
+  add(`Evangelisches Pfarramt ${place}, Württemberg`);
+  add(`${place}, Württemberg`);
+  return queries;
 }
 
 function wait(milliseconds) {
@@ -37,42 +53,64 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
     onProgress?.({ current: index, total: locations.length, location, status, detail });
   };
 
-  for (const [index, location] of locations.entries()) {
-    const query = queryForLocation(location);
+  const loadCandidates = async (query) => {
     const cacheKey = `${providerUrl}|${query}`;
     const cached = database.prepare('SELECT response_json FROM geocode_cache WHERE query = ? AND provider_url = ?').get(cacheKey, providerUrl);
-    let candidates;
-    if (cached) {
-      candidates = JSON.parse(cached.response_json);
-      result.cached += 1;
-      report(location, index + 1, 'cached');
-    } else {
-      try {
-        const url = new URL(providerUrl);
-        url.searchParams.set('format', 'jsonv2');
-        url.searchParams.set('limit', '5');
-        url.searchParams.set('q', query);
-        for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-          const waitFor = Math.max(0, minIntervalMs - (Date.now() - lastRequestAt));
-          if (waitFor) await sleepImpl(waitFor);
-          lastRequestAt = Date.now();
-          const response = await fetchImpl(url, { headers: { 'accept': 'application/json', 'user-agent': userAgent } });
-          if (response.ok) {
-            candidates = await response.json();
-            if (!Array.isArray(candidates)) throw new Error('invalid-json-shape');
-            break;
-          }
-          const reason = `http-${response.status}`;
-          if (attempt === maxRetries || (response.status !== 429 && response.status < 500)) throw new Error(reason);
-          await sleepImpl(Math.max(retryAfterMilliseconds(response), minIntervalMs, 2 ** attempt * 1_000));
+    if (cached) return { candidates: JSON.parse(cached.response_json), cached: true };
+    try {
+      const url = new URL(providerUrl);
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('limit', '5');
+      url.searchParams.set('q', query);
+      let candidates;
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        const waitFor = Math.max(0, minIntervalMs - (Date.now() - lastRequestAt));
+        if (waitFor) await sleepImpl(waitFor);
+        lastRequestAt = Date.now();
+        const response = await fetchImpl(url, { headers: { 'accept': 'application/json', 'user-agent': userAgent } });
+        if (response.ok) {
+          candidates = await response.json();
+          if (!Array.isArray(candidates)) throw new Error('invalid-json-shape');
+          break;
         }
-        if (!dryRun) insertCache.run(cacheKey, providerUrl, JSON.stringify(candidates), new Date().toISOString());
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : 'request-failed';
-        recordFailure(reason);
-        report(location, index + 1, 'failed', reason);
+        const reason = `http-${response.status}`;
+        if (attempt === maxRetries || (response.status !== 429 && response.status < 500)) throw new Error(reason);
+        await sleepImpl(Math.max(retryAfterMilliseconds(response), minIntervalMs, 2 ** attempt * 1_000));
+      }
+      if (!dryRun) insertCache.run(cacheKey, providerUrl, JSON.stringify(candidates), new Date().toISOString());
+      return { candidates, cached: false };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'request-failed' };
+    }
+  };
+
+  for (const [index, location] of locations.entries()) {
+    let candidates = [];
+    let bestCandidates = [];
+    let hadCandidates = false;
+    let cached = false;
+    let lastError = null;
+    for (const query of buildGeocoderQueries(location)) {
+      const loaded = await loadCandidates(query);
+      if (loaded.error) {
+        lastError = loaded.error;
         continue;
       }
+      cached ||= loaded.cached;
+      candidates = loaded.candidates;
+      hadCandidates ||= candidates.length > 0;
+      if (candidates.length === 1) {
+        bestCandidates = candidates;
+        break;
+      }
+      if (candidates.length > bestCandidates.length) bestCandidates = candidates;
+    }
+    candidates = bestCandidates;
+    if (cached) result.cached += 1;
+    if (candidates.length === 0 && !hadCandidates && lastError) {
+      recordFailure(lastError);
+      report(location, index + 1, 'failed', lastError);
+      continue;
     }
     if (candidates.length !== 1) {
       result.ambiguous += 1;

@@ -27,6 +27,10 @@ Nach dem Aufruf der Webadresse zeigt die Startseite:
 - eine zugängliche Ergebnisliste als alternative Ansicht,
 - ein platzsparendes Filterfenster, das erst über „Filter öffnen“ eingeblendet wird,
 - geclusterte, nach Kategorie eingefärbte Marker für erfolgreich geocodierte Standorte,
+- strukturierte Popups mit Status, Kirchenbezirk, Umfang, Frist und Links zu
+  Detailseite und Originaldokument,
+- optional violett dargestellte Kirchenbezirksgrenzen aus der konfigurierten
+  GeoJSON-/`KiBez.json`-Datei,
 - die Quellenbezeichnung und den Link zum originalen PDF.
 
 Die Karte nutzt den gesamten verfügbaren Bereich unterhalb der Kopfleiste. Die
