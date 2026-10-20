@@ -92,16 +92,21 @@ SQLite und native npm-Buildwerkzeuge laufen im Container.
 ./karte up
 ```
 
-`./karte up` baut vor dem Start das aktuelle Image. Dadurch wird verhindert, dass
-ein altes Image einen veralteten Quellstand ausführt.
+`./karte up` startet das vorhandene Image. Nach Änderungen am Quellcode oder an
+Abhängigkeiten wird das Image bewusst neu gebaut:
+
+```bash
+./karte build
+./karte up
+```
 
 ### 3.2 Operator-Befehle
 
 | Befehl | Zweck |
 | --- | --- |
-| `./karte up` | Anwendung bauen und starten |
+| `./karte up` | Anwendung mit dem vorhandenen Image starten |
 | `./karte down` | Anwendung stoppen |
-| `./karte restart` | Anwendung neu starten und neu bauen |
+| `./karte restart` | Anwendung mit dem vorhandenen Image neu starten |
 | `./karte build` | Image bauen |
 | `./karte install` | Image und Abhängigkeiten bauen |
 | `./karte logs` | Anwendungslogs verfolgen |

@@ -14,10 +14,12 @@ describe('Docker build prerequisites', () => {
     expect(npmInstall).toBeGreaterThan(tools);
   });
 
-  it('rebuilds images before commands that execute copied source', () => {
-    expect(wrapper).toMatch(/up -d --build/);
-    expect(wrapper).toMatch(/run --rm --build app/);
+  it('builds only through explicit build commands and isolated tests', () => {
+    expect(wrapper).toMatch(/build\) docker compose -f compose\.yaml build/);
+    expect(wrapper).toMatch(/install\) docker compose -f compose\.yaml build/);
     expect(wrapper).toMatch(/run --rm --build test/);
+    expect(wrapper).not.toMatch(/up -d --build/);
+    expect(wrapper).not.toMatch(/run --rm --build app/);
   });
 
   it('exposes the documented operational wrapper commands', () => {
@@ -30,7 +32,7 @@ describe('Docker build prerequisites', () => {
 
   it('uses status for Docker state and app-status for application state', () => {
     expect(wrapper).toMatch(/status\) docker compose -f compose\.yaml ps/);
-    expect(wrapper).toMatch(/app-status\|data-status\) docker compose -f compose\.yaml run --rm --build app node src\/cli\.js status/);
+    expect(wrapper).toMatch(/app-status\|data-status\) docker compose -f compose\.yaml run --rm app node src\/cli\.js status/);
   });
 
   it('passes a documented geocoder default to runtime services', () => {

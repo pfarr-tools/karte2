@@ -28,17 +28,17 @@ EOF
 
 command="${1:-help}"
 case "$command" in
-  up) docker compose -f compose.yaml up -d --build ;;
+  up) docker compose -f compose.yaml up -d ;;
   down) docker compose -f compose.yaml down ;;
-  restart) docker compose -f compose.yaml down && docker compose -f compose.yaml up -d --build ;;
+  restart) docker compose -f compose.yaml down && docker compose -f compose.yaml up -d ;;
   build) docker compose -f compose.yaml build ;;
   install) docker compose -f compose.yaml build ;;
   logs) docker compose -f compose.yaml logs -f ;;
-  shell) docker compose -f compose.yaml run --rm --build app sh ;;
-  scheduler) docker compose -f compose.yaml --profile scheduler up -d --build scheduler ;;
+  shell) docker compose -f compose.yaml run --rm app sh ;;
+  scheduler) docker compose -f compose.yaml --profile scheduler up -d scheduler ;;
   status) docker compose -f compose.yaml ps "${@:2}" ;;
-  app-status|data-status) docker compose -f compose.yaml run --rm --build app node src/cli.js status ;;
-  migrate|import|geocode|backup) docker compose -f compose.yaml run --rm --build app node src/cli.js "$@" ;;
+  app-status|data-status) docker compose -f compose.yaml run --rm app node src/cli.js status ;;
+  migrate|import|geocode|backup) docker compose -f compose.yaml run --rm app node src/cli.js "$@" ;;
   test) docker compose -f compose.yaml -f compose.test.yaml run --rm --build test ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: $command" >&2; usage >&2; exit 2 ;;

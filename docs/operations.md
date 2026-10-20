@@ -2,7 +2,8 @@
 
 ## Start
 
-`./karte up` baut das aktuelle Image und startet die Webanwendung. Die Datenbank,
+`./karte up` startet das vorhandene Image der Webanwendung. Nach Änderungen am
+Quellcode oder an Abhängigkeiten zuerst `./karte build` ausführen. Die Datenbank,
 PDFs und Backups liegen im Compose-Volume `karte-data`. Für die optionale tägliche
 Synchronisierung wird `./karte scheduler` verwendet; der Scheduler verhindert
 parallele Läufe mit einem SQLite-Lock.
