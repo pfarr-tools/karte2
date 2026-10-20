@@ -78,6 +78,7 @@ async function fetchPage(url, fetchImpl = fetch, { sleepImpl = (milliseconds) =>
 export async function runCli(argv, dependencies = {}) {
   const args = parseCliArgs(argv);
   const stdout = dependencies.stdout ?? process.stdout;
+  const stderr = dependencies.stderr ?? process.stderr;
   if (args.command === 'help') {
     stdout.write(usage);
     return 0;
@@ -107,6 +108,10 @@ export async function runCli(argv, dependencies = {}) {
       providerUrl: dependencies.geocoderUrl ?? config.geocoderUrl,
       fetchImpl: dependencies.fetchImpl,
       minIntervalMs: config.geocoderMinIntervalMs,
+      onProgress: ({ current, total, location, status, detail }) => {
+        const labels = { updated: 'geocodiert', cached: 'aus Cache', ambiguous: 'unklar', failed: `Fehler${detail ? ` (${detail})` : ''}` };
+        stderr.write(`[Geocoding] ${current}/${total} ${location.name}: ${labels[status] ?? status}\n`);
+      },
       dryRun: args.dryRun,
     });
     stdout.write(JSON.stringify(result) + '\n');

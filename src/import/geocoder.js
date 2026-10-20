@@ -16,7 +16,7 @@ function retryAfterMilliseconds(response) {
  * Geocode unresolved locations through a Nominatim-compatible endpoint.
  * Results are cached and ambiguous responses are deliberately not placed on the map.
  */
-export async function geocodeLocations({ database, providerUrl, fetchImpl = fetch, userAgent = 'karte2/0.1', minIntervalMs = 1_000, maxRetries = 2, sleepImpl = wait, dryRun = false }) {
+export async function geocodeLocations({ database, providerUrl, fetchImpl = fetch, userAgent = 'karte2/0.1', minIntervalMs = 1_000, maxRetries = 2, sleepImpl = wait, onProgress, dryRun = false }) {
   if (!providerUrl) throw new Error('A geocoder URL is required');
   const locations = database.prepare(`
     SELECT id, name, address FROM locations
@@ -33,7 +33,11 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
     result.failureReasons[reason] = (result.failureReasons[reason] ?? 0) + 1;
   };
 
-  for (const location of locations) {
+  const report = (location, index, status, detail = null) => {
+    onProgress?.({ current: index, total: locations.length, location, status, detail });
+  };
+
+  for (const [index, location] of locations.entries()) {
     const query = queryForLocation(location);
     const cacheKey = `${providerUrl}|${query}`;
     const cached = database.prepare('SELECT response_json FROM geocode_cache WHERE query = ? AND provider_url = ?').get(cacheKey, providerUrl);
@@ -41,6 +45,7 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
     if (cached) {
       candidates = JSON.parse(cached.response_json);
       result.cached += 1;
+      report(location, index + 1, 'cached');
     } else {
       try {
         const url = new URL(providerUrl);
@@ -63,12 +68,15 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
         }
         if (!dryRun) insertCache.run(cacheKey, providerUrl, JSON.stringify(candidates), new Date().toISOString());
       } catch (error) {
-        recordFailure(error instanceof Error ? error.message : 'request-failed');
+        const reason = error instanceof Error ? error.message : 'request-failed';
+        recordFailure(reason);
+        report(location, index + 1, 'failed', reason);
         continue;
       }
     }
     if (candidates.length !== 1) {
       result.ambiguous += 1;
+      report(location, index + 1, 'ambiguous', candidates.length ? `${candidates.length} Treffer` : 'kein Treffer');
       if (!dryRun) update.run(null, null, providerUrl, candidates.length ? 'ambiguous' : 'not-found', new Date().toISOString(), location.id);
       continue;
     }
@@ -77,9 +85,11 @@ export async function geocodeLocations({ database, providerUrl, fetchImpl = fetc
     const longitude = Number(candidate.lon);
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
       recordFailure('invalid-coordinates');
+      report(location, index + 1, 'failed', 'invalid-coordinates');
       continue;
     }
     result.updated += 1;
+    report(location, index + 1, 'updated');
     if (!dryRun) update.run(latitude, longitude, providerUrl, 'approximate', new Date().toISOString(), location.id);
   }
   return result;

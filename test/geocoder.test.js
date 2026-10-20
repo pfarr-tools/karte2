@@ -43,6 +43,22 @@ describe('geocoder', () => {
     db.close();
   });
 
+  it('reports progress for every unresolved location', async () => {
+    const db = database();
+    const progress = [];
+    const fetchImpl = async (url) => ({ ok: true, async json() {
+      return url.toString().includes('Mehrdeutiger') ? [{ lat: '48', lon: '9' }, { lat: '49', lon: '10' }] : [{ lat: '48.5', lon: '9.1' }];
+    } });
+
+    await geocodeLocations({ database: db, providerUrl: 'https://nominatim.example/search', fetchImpl, minIntervalMs: 0, onProgress: (event) => progress.push(event) });
+
+    expect(progress.map(({ current, total, status }) => ({ current, total, status }))).toEqual([
+      { current: 1, total: 2, status: 'updated' },
+      { current: 2, total: 2, status: 'ambiguous' },
+    ]);
+    db.close();
+  });
+
   it('retries rate limits and reports persistent provider failures', async () => {
     const db = database();
     let requests = 0;

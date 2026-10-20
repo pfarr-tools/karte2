@@ -22,6 +22,10 @@ verfügbar.
 ./karte geocode
 ```
 
+Der Geocoder schreibt während des Laufs Fortschrittszeilen nach `stderr`, zum
+Beispiel `[Geocoding] 12/87 Ort: geocodiert`. Das abschließende JSON bleibt auf
+`stdout` und kann daher weiterhin von Skripten ausgewertet werden.
+
 `GEOCODER_URL` muss auf einen Nominatim-kompatiblen Dienst zeigen. Mehrdeutige
 Treffer erhalten keine Koordinaten und müssen administrativ geprüft werden.
 Der Standardwert `GEOCODER_MIN_INTERVAL_MS=1000` begrenzt die Anfragen auf eine
