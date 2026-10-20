@@ -253,7 +253,7 @@ describe('page import persistence', () => {
     await runPageImport({ ...options, html: '<h2>Aktuelle Ausschreibungen</h2><a href="/downloads/one.pdf">Beispielort (PDF) 2 MB</a>', force: true });
 
     expect(database.prepare('SELECT COUNT(*) AS count FROM positions').get().count).toBe(1);
-    expect(database.prepare('SELECT normalized_name FROM positions').get()).toEqual({ normalized_name: 'beispielort' });
+    expect(database.prepare('SELECT display_name, normalized_name FROM positions').get()).toEqual({ display_name: 'Beispielort', normalized_name: 'beispielort' });
     database.close();
   });
 

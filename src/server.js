@@ -96,7 +96,7 @@ function publicPage() {
     function render(items) {
       markers.clearLayers();
       results.innerHTML = items.length ? '<div class="table-responsive"><table class="table table-striped align-middle"><caption class="visually-hidden">Gefundene Pfarrstellen</caption><thead><tr><th scope="col">Name</th><th scope="col">Kategorie</th><th scope="col">Ort/Dekanat</th><th scope="col">Frist</th><th scope="col">Quelle</th></tr></thead><tbody>' + items.map((item) => '<tr><th scope="row"><a href="/position/' + encodeURIComponent(item.positionId || item.id) + '">' + escapeHtml(item.name) + '</a><div class="small text-body-secondary">' + escapeHtml(item.type || '') + '</div></th><td><span class="badge text-bg-secondary">' + escapeHtml(categoryLabels[item.category] || 'Unbekannte Kategorie') + '</span></td><td>' + escapeHtml(item.locations.map((location) => location.name).join(', ') || item.deanery || 'Kein Ort angegeben') + '</td><td>' + escapeHtml(item.deadline || 'Keine Frist angegeben') + '</td><td><a href="' + escapeHtml(item.documentUrl || item.source.url) + '">' + escapeHtml(item.source.name) + '</a></td></tr>').join('') + '</tbody></table></div>' : '<p class="alert alert-info">Keine Pfarrstellen gefunden.</p>';
-      const located = items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)));
+      const located = items.flatMap((item) => item.locations.map((location) => ({ ...location, category: item.category, name: item.name }))).filter((location) => location.latitude !== null && location.longitude !== null && location.latitude !== '' && location.longitude !== '' && Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)));
       const bounds = [];
       located.forEach((location) => {
         const point = [Number(location.latitude), Number(location.longitude)];
@@ -122,13 +122,13 @@ function publicPage() {
 function publicationItems(database, query) {
   const clauses = [];
   const values = [];
-  clauses.push("(l.geocoding_confidence IS NULL OR l.geocoding_confidence <> 'ambiguous')");
+  clauses.push("l.latitude IS NOT NULL AND l.longitude IS NOT NULL AND l.geocoding_confidence IN ('approximate', 'verified')");
   if (query.category) { clauses.push('pub.category = ?'); values.push(query.category); }
   if (query.positionId) { clauses.push('p.id = ?'); values.push(Number(query.positionId)); }
   if (query.q) {
-    clauses.push(`(p.normalized_name LIKE ? OR p.description LIKE ? OR p.deanery LIKE ? OR l.name LIKE ? OR l.address LIKE ?)`);
+    clauses.push(`(p.display_name LIKE ? OR p.normalized_name LIKE ? OR p.description LIKE ? OR p.deanery LIKE ? OR l.name LIKE ? OR l.address LIKE ?)`);
     const search = `%${query.q}%`;
-    values.push(search, search, search, search, search);
+    values.push(search, search, search, search, search, search);
   }
   if (query.type) { clauses.push('p.type = ?'); values.push(query.type); }
   if (query.deanery) { clauses.push('p.deanery = ?'); values.push(query.deanery); }
@@ -139,7 +139,7 @@ function publicationItems(database, query) {
   if (query.procedure) { clauses.push('pub.appointment_procedure LIKE ?'); values.push(`%${query.procedure}%`); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = database.prepare(`
-    SELECT pub.id, p.id AS position_id, p.normalized_name AS name, p.type, p.deanery, p.employment_percentage, p.description,
+    SELECT pub.id, p.id AS position_id, COALESCE(p.display_name, p.normalized_name) AS name, p.type, p.deanery, p.employment_percentage, p.description,
       pub.category, pub.application_deadline, pub.appointment_procedure, pub.published_at, pub.current_state, pub.extraction_confidence,
       l.name AS location_name, l.address, l.latitude, l.longitude, pl.role,
       s.name AS source_name, s.url AS source_url, d.original_url AS document_url, d.fetched_at

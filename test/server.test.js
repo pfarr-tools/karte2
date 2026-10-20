@@ -65,8 +65,8 @@ describe('HTTP server', () => {
       VALUES ('beispiel', 'Beispielpfarrstelle', 'Pfarrstelle', 'Beispieldekanat', 75)
     `).run();
     database.prepare(`
-      INSERT INTO locations (name, address, latitude, longitude)
-      VALUES ('Beispielort', 'Kirchplatz 1', 48.5, 9.1)
+      INSERT INTO locations (name, address, latitude, longitude, geocoding_confidence)
+      VALUES ('Beispielort', 'Kirchplatz 1', 48.5, 9.1, 'verified')
     `).run();
     database.prepare(`
       INSERT INTO position_locations (position_id, location_id, role)
@@ -140,6 +140,9 @@ describe('HTTP server', () => {
       VALUES ('passend', 'Passende Pfarrstelle', 'Pfarrstelle', 'Passenddekanat', 75),
              ('unpassend', 'Andere Stelle', 'Diakonat', 'Anderesdekanat', 50)
     `).run();
+    database.prepare('INSERT INTO locations (name, latitude, longitude, geocoding_confidence) VALUES (?, ?, ?, ?), (?, ?, ?, ?)')
+      .run('Passendort', 48.5, 9.1, 'approximate', 'Andererort', 48.6, 9.2, 'approximate');
+    database.prepare("INSERT INTO position_locations (position_id, location_id, role) VALUES (1, 1, 'duty'), (2, 2, 'duty')").run();
     database.prepare(`
       INSERT INTO publications (position_id, source_id, category, application_deadline, appointment_procedure, first_seen_at, last_seen_at, current_state)
       VALUES (1, 'elkw-pfarrstellen', 'advertised', '2026-11-05', 'Wahl', '2026-10-19', '2026-10-19', 'current'),
@@ -181,6 +184,25 @@ describe('HTTP server', () => {
     expect(response.json().items).toEqual([]);
   });
 
+  it('does not expose positions without a verified geocoding result', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'karte2-server-'));
+    temporaryDirectories.push(root);
+    const testRoot = path.join(root, 'test');
+    const database = openDatabase({ filename: path.join(testRoot, 'database.sqlite'), nodeEnv: 'test', testRoot, runtimeRoot: path.join(root, 'runtime') });
+    databases.push(database);
+    bootstrapDatabase(database);
+    database.prepare("INSERT INTO positions (stable_slug, normalized_name) VALUES ('ungeklaert', 'Ungeklärte Stelle')").run();
+    database.prepare("INSERT INTO locations (name, latitude, longitude, geocoding_confidence) VALUES ('Ungeklärter Ort', NULL, NULL, 'not-found')").run();
+    database.prepare("INSERT INTO position_locations (position_id, location_id, role) VALUES (1, 1, 'duty')").run();
+    database.prepare("INSERT INTO publications (position_id, source_id, category, first_seen_at, last_seen_at, current_state) VALUES (1, 'elkw-pfarrstellen', 'available', '2026-10-20', '2026-10-20', 'current')").run();
+
+    const server = buildServer({ database });
+    servers.push(server);
+    const response = await server.inject({ method: 'GET', url: '/api/publications' });
+
+    expect(response.json().items).toEqual([]);
+  });
+
   it('renders a German public map/list shell with an unofficial disclaimer', async () => {
     const server = buildServer();
     servers.push(server);
@@ -202,6 +224,7 @@ describe('HTTP server', () => {
     expect(response.body).toContain('offcanvas');
     expect(response.body).toContain('height: calc(100vh - var(--topbar-height))');
     expect(response.body).toContain('Number.isFinite(Number(location.latitude))');
+    expect(response.body).toContain("location.latitude !== null && location.longitude !== null");
     expect(response.body).toContain('id="list-panel" class="d-none');
     expect(response.body).toContain('Aktuelle Ausschreibung');
     expect(response.body).toContain('Verfügbare Pfarrstelle');

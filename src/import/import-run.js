@@ -21,8 +21,8 @@ function uniqueStableSlug(database, name, positionId) {
 }
 
 function updateImportedPosition(database, positionId, parsed) {
-  database.prepare('UPDATE positions SET stable_slug = ?, normalized_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .run(uniqueStableSlug(database, parsed.name, positionId), parsed.normalizedName, positionId);
+  database.prepare('UPDATE positions SET stable_slug = ?, display_name = ?, normalized_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(uniqueStableSlug(database, parsed.name, positionId), parsed.name, parsed.normalizedName, positionId);
   const importedFields = {
     type: parsed.type,
     deanery: parsed.deanery,
@@ -79,10 +79,10 @@ function persistPublication(database, { candidate, section, documentId, extracte
       ? database.prepare('INSERT INTO locations (name) VALUES (?)').run(parsed.locationName).lastInsertRowid
       : null;
     const inserted = database.prepare(`
-      INSERT INTO positions (stable_slug, normalized_name, type, deanery, employment_percentage, employment_description, description, primary_location_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO positions (stable_slug, display_name, normalized_name, type, deanery, employment_percentage, employment_description, description, primary_location_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      occupied ? `${baseSlug}-document-${documentId}` : baseSlug, parsed.normalizedName, parsed.type, parsed.deanery, parsed.employmentPercentage,
+      occupied ? `${baseSlug}-document-${documentId}` : baseSlug, parsed.name, parsed.normalizedName, parsed.type, parsed.deanery, parsed.employmentPercentage,
       parsed.employmentDescription, parsed.description, locationId,
     );
     position = { id: Number(inserted.lastInsertRowid) };

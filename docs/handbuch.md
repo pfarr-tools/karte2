@@ -26,7 +26,7 @@ Nach dem Aufruf der Webadresse zeigt die Startseite:
 - eine Leaflet-Karte für Baden-Württemberg,
 - eine zugängliche Ergebnisliste als alternative Ansicht,
 - ein platzsparendes Filterfenster, das erst über „Filter öffnen“ eingeblendet wird,
-- geclusterte, nach Kategorie eingefärbte Marker für bekannte Standorte,
+- geclusterte, nach Kategorie eingefärbte Marker für erfolgreich geocodierte Standorte,
 - die Quellenbezeichnung und den Link zum originalen PDF.
 
 Die Karte nutzt den gesamten verfügbaren Bereich unterhalb der Kopfleiste. Die
@@ -59,6 +59,10 @@ Kategorien werden in der Oberfläche auf Deutsch angezeigt: „Aktuelle
 Ausschreibung“, „Verfügbare Pfarrstelle“ und „Vormerkliste / künftige
 Besetzung“. Die zugängliche Liste ist auch ohne Kartenbedienung vollständig
 nutzbar.
+
+Positionen ohne gültige Koordinaten und ohne bestätigte Geocoding-Konfidenz
+werden nicht öffentlich als Treffer oder Marker angezeigt. Sie bleiben für die
+Administration und die manuelle Standortkorrektur erhalten.
 
 ### 2.3 Positionsdetails
 
@@ -250,6 +254,10 @@ Geocoding erfolgt nur für Standorte ohne vollständige Koordinaten und wird in
 markiert. Mehrere Treffer oder kein Treffer erhalten keine Koordinaten und werden
 als `ambiguous` beziehungsweise `not-found` gespeichert. Solche Orte dürfen
 nicht stillschweigend auf einen zufälligen Marker gesetzt werden.
+
+Die öffentliche Suche und Karte berücksichtigen ausschließlich Standorte mit
+Koordinaten und der Konfidenz `approximate` oder `verified`. Dadurch erscheinen
+unaufgelöste Standorte insbesondere nicht versehentlich bei `0,0` im Meer.
 
 Die manuelle Standortkorrektur im Admin-Bereich ist der vorgesehene Weg für
 geprüfte regionale, mehrere oder repräsentative Standorte.
